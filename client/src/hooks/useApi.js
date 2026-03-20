@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://placementos-api.onrender.com';
 
 export const useApi = () => {
   const { token, logout } = useAuth();
