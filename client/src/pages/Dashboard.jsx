@@ -120,7 +120,7 @@ export default function Dashboard() {
             PlacementOS v3
           </div>
           <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '0.55rem', color: 'var(--muted)', letterSpacing: '2.5px', marginTop: '3px' }}>
-            10 LPA BATTLE PLAN · {user?.name?.toUpperCase()} · {user?.cgpa ? `${user.cgpa} CGPA` : ''} · 250+ PROBLEMS
+            10 LPA BATTLE PLAN · {user?.name?.toUpperCase()} · {user?.cgpa ? `${user.cgpa} CGPA` : ''} · {stats.dsaDone + stats.aptDone} PROBLEMS DONE
           </div>
         </div>
         <div className="header-actions">
@@ -134,7 +134,6 @@ export default function Dashboard() {
         {(user?.targetCompanies || ['Zoho', 'Freshworks', 'Persistent', 'TCS Digital', 'Infosys DSE']).map(c => (
           <span key={c} className={`target-chip ${companyStyle[c] || 't-backup'}`}>{c}</span>
         ))}
-        <span className="target-chip t-dream">🌟 AMAZON/MS (DREAM)</span>
       </div>
 
       {/* Stats */}

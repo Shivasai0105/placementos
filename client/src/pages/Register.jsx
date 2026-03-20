@@ -75,7 +75,7 @@ export default function Register() {
             <label className="form-label">Full Name</label>
             <input
               type="text"
-              placeholder="Shiva Kumar"
+              placeholder="Your Full Name"
               value={form.name}
               onChange={set('name')}
               required
@@ -86,7 +86,7 @@ export default function Register() {
             <label className="form-label">Email</label>
             <input
               type="email"
-              placeholder="shiva@example.com"
+              placeholder="you@example.com"
               value={form.email}
               onChange={set('email')}
               required

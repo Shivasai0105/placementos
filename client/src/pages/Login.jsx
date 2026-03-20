@@ -48,7 +48,7 @@ export default function Login() {
             <label className="form-label">Email</label>
             <input
               type="email"
-              placeholder="shiva@example.com"
+              placeholder="you@example.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
