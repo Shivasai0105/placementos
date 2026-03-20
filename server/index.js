@@ -9,30 +9,29 @@ const progressRoutes = require('./routes/progress');
 const app = express();
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
-// Allow requests from all listed origins (production + local dev).
-// Add any future frontend URLs to ALLOWED_ORIGINS in your Render env vars
-// as a comma-separated list, e.g.:
-//   ALLOWED_ORIGINS=https://placementos-kappa.vercel.app,http://localhost:5173
+// Set ALLOWED_ORIGINS on Render as a comma-separated list, e.g.:
+//   https://placementos-kappa.vercel.app,http://localhost:5173
 const rawOrigins = process.env.ALLOWED_ORIGINS || process.env.CLIENT_URL || 'http://localhost:5173';
 const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow non-browser tools (Postman, curl) that send no Origin header
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      console.warn(`CORS blocked: ${origin}`);
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser tools (Postman, curl) that send no Origin header
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn(`CORS blocked: ${origin}`);
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200,
+};
 
-// Handle pre-flight OPTIONS requests for all routes
-app.options('*', cors());
+// ⚠️ OPTIONS pre-flight MUST come BEFORE app.use(cors(...))
+// so that preflight requests are handled before origin-check can block them.
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
 
 // ─── Body Parser ─────────────────────────────────────────────────────────────
 app.use(express.json());
