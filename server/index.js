@@ -8,14 +8,36 @@ const progressRoutes = require('./routes/progress');
 
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true
-}));
+// ─── CORS ────────────────────────────────────────────────────────────────────
+// Allow requests from all listed origins (production + local dev).
+// Add any future frontend URLs to ALLOWED_ORIGINS in your Render env vars
+// as a comma-separated list, e.g.:
+//   ALLOWED_ORIGINS=https://placementos-kappa.vercel.app,http://localhost:5173
+const rawOrigins = process.env.ALLOWED_ORIGINS || process.env.CLIENT_URL || 'http://localhost:5173';
+const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser tools (Postman, curl) that send no Origin header
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      console.warn(`CORS blocked: ${origin}`);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// Handle pre-flight OPTIONS requests for all routes
+app.options('*', cors());
+
+// ─── Body Parser ─────────────────────────────────────────────────────────────
 app.use(express.json());
 
-// Routes
+// ─── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/progress', progressRoutes);
 
@@ -24,14 +46,28 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PlacementOS API running 🚀' });
 });
 
-// Connect to MongoDB and start server
+// ─── 404 Handler (always JSON, never HTML) ───────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ message: `Route ${req.method} ${req.originalUrl} not found` });
+});
+
+// ─── Global Error Handler (always JSON, never HTML) ──────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ message: err.message || 'Internal server error' });
+});
+
+// ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ MongoDB connected');
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌐 Allowed origins: ${allowedOrigins.join(', ')}`);
     });
   })
   .catch((err) => {

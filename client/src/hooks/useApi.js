@@ -12,14 +12,33 @@ export const useApi = () => {
       ...options.headers,
     };
 
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers,
-    });
+    let res;
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers,
+      });
+    } catch (networkErr) {
+      // Network failure (server down, no internet, DNS error, etc.)
+      throw new Error('Cannot reach the server. Please check your connection.');
+    }
 
     if (res.status === 401) {
       logout();
       throw new Error('Session expired. Please log in again.');
+    }
+
+    // Guard against HTML error pages (Render, Nginx, CDN, etc.)
+    // that would cause a cryptic JSON parse crash.
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await res.text();
+      console.error(`Non-JSON response (${res.status}) from ${path}:`, text.slice(0, 200));
+      throw new Error(
+        res.ok
+          ? 'Unexpected server response. Please try again.'
+          : `Server error (${res.status}). Please try again later.`
+      );
     }
 
     const data = await res.json();
