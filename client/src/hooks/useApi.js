@@ -41,7 +41,18 @@ export const useApi = () => {
       );
     }
 
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      // Empty body or truncated response (e.g. Render cold-start / crash)
+      console.error(`Empty/invalid JSON body (${res.status}) from ${path}`);
+      throw new Error(
+        res.ok
+          ? 'Server returned an empty response. Please try again.'
+          : `Server error (${res.status}). The server may be waking up — wait a few seconds and retry.`
+      );
+    }
     if (!res.ok) {
       throw new Error(data.message || 'Something went wrong.');
     }
