@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 
-const API_BASE = '';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export const useApi = () => {
   const { token, logout } = useAuth();
