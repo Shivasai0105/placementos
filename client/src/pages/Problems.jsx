@@ -8,6 +8,7 @@ export default function Problems() {
   const [progress, setProgress] = useState({ tasks: {}, problems: {} });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, easy, medium, hard
+  const [search, setSearch] = useState('');
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -39,6 +40,15 @@ export default function Problems() {
   const total = PROBLEMS.reduce((s, sec) => s + sec.problems.length, 0);
   const done = PROBLEMS.reduce((s, sec) => s + sec.problems.filter(p => isDone(p.id)).length, 0);
 
+  // Normalize search query
+  const q = search.trim().toLowerCase();
+
+  const getFiltered = (problems) => {
+    let list = filter === 'all' ? problems : problems.filter(p => p.diff === filter);
+    if (q) list = list.filter(p => p.name.toLowerCase().includes(q) || String(p.lc).includes(q));
+    return list;
+  };
+
   if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>Loading problems...</div>;
 
   return (
@@ -57,6 +67,21 @@ export default function Problems() {
         <div className="prog-fill" style={{ width: `${Math.round(done / total * 100)}%` }} />
       </div>
 
+      {/* Search bar */}
+      <div className="search-bar">
+        <span className="search-icon">🔍</span>
+        <input
+          type="text"
+          placeholder="Search problems by name or LC number…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          autoComplete="off"
+        />
+        {search && (
+          <span className="search-clear" onClick={() => setSearch('')} title="Clear search">✕</span>
+        )}
+      </div>
+
       {/* Filter tabs */}
       <div className="tabs">
         {['all', 'easy', 'medium', 'hard'].map(f => (
@@ -68,7 +93,7 @@ export default function Problems() {
 
       {/* Problem Sections */}
       {PROBLEMS.map(section => {
-        const filtered = filter === 'all' ? section.problems : section.problems.filter(p => p.diff === filter);
+        const filtered = getFiltered(section.problems);
         if (filtered.length === 0) return null;
         const secDone = filtered.filter(p => isDone(p.id)).length;
 
@@ -95,6 +120,13 @@ export default function Problems() {
           </div>
         );
       })}
+
+      {/* Empty state when searching */}
+      {q && PROBLEMS.every(sec => getFiltered(sec.problems).length === 0) && (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontFamily: "'JetBrains Mono',monospace", fontSize: '0.75rem' }}>
+          No problems found for "{search}"
+        </div>
+      )}
     </div>
   );
 }

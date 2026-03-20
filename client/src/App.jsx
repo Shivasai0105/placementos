@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { useTheme } from './hooks/useTheme';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -37,6 +38,7 @@ const AppLayout = ({ children }) => (
 );
 
 export default function App() {
+  useTheme(); // initialise theme (reads localStorage, applies data-theme to <html>)
   const { token, loading } = useAuth();
 
   if (loading) return (
