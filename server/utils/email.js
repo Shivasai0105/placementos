@@ -1,20 +1,19 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// ─── Transporter ──────────────────────────────────────────────────────────────
-// Uses Gmail SMTP with an App Password (not your real Gmail password).
-// Set these in Render env vars:
-//   EMAIL_USER  = your.gmail@gmail.com
-//   EMAIL_PASS  = xxxx xxxx xxxx xxxx  (Gmail App Password)
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,  // App Password, NOT your Gmail login password
-  },
-});
-
-const FROM = `PlacementOS <${process.env.EMAIL_USER}>`;
 const APP_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+
+// ─── Resend client (lazy — only created if API key is present) ────────────────
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+}
+
+/**
+ * Returns true if email sending is configured and ready.
+ */
+exports.emailEnabled = () => !!resend;
+
+const FROM = process.env.EMAIL_FROM || 'PlacementOS <onboarding@resend.dev>';
 
 // ─── Base HTML template ───────────────────────────────────────────────────────
 const btnStyle = [
@@ -56,7 +55,9 @@ const baseTemplate = (content) => `
 
 // ─── Send helper ──────────────────────────────────────────────────────────────
 const sendEmail = async ({ to, subject, html }) => {
-  await transporter.sendMail({ from: FROM, to, subject, html });
+  if (!resend) throw new Error('RESEND_API_KEY not configured');
+  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+  if (error) throw new Error(`Resend error: ${error.message}`);
 };
 
 // ─── Verification email ───────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ exports.sendVerificationEmail = async (to, name, token) => {
     subject: '✉️ Verify your PlacementOS email',
     html: baseTemplate(`
       <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Verify your email ✉️</div>
-      <div style="font-size:15px;color:#999;margin-bottom:4px;line-height:1.6;">
+      <div style="font-size:15px;color:#999;line-height:1.6;margin-bottom:4px;">
         Hi <strong style="color:#fff;">${name}</strong>, welcome to PlacementOS!<br>
         Click the button below to verify your email and start your placement prep.
       </div>
@@ -89,7 +90,7 @@ exports.sendPasswordResetEmail = async (to, name, token) => {
     subject: '🔑 Reset your PlacementOS password',
     html: baseTemplate(`
       <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Reset your password 🔑</div>
-      <div style="font-size:15px;color:#999;margin-bottom:4px;line-height:1.6;">
+      <div style="font-size:15px;color:#999;line-height:1.6;margin-bottom:4px;">
         Hi <strong style="color:#fff;">${name}</strong>,<br>
         We received a request to reset your password. Click below to choose a new one.
       </div>

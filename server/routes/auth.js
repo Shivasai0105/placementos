@@ -5,7 +5,7 @@ const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const Progress = require('../models/Progress');
 const auth = require('../middleware/authMiddleware');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
+const { sendVerificationEmail, sendPasswordResetEmail, emailEnabled } = require('../utils/email');
 
 const router = express.Router();
 
@@ -71,24 +71,34 @@ router.post('/register', authLimiter, async (req, res) => {
     if (existingUser)
       return res.status(400).json({ message: 'Email already registered. Please log in.' });
 
+    // If email is NOT configured → auto-verify so users can log in immediately
+    const autoVerify = !emailEnabled();
+
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
       password,
       cgpa: cgpa || null,
       startDate: startDate ? new Date(startDate) : new Date(),
-      isVerified: false,
+      isVerified: autoVerify,
     });
 
     await Progress.create({ userId: user._id });
 
-    // Send verification email (non-blocking — don't fail register if email fails)
+    if (autoVerify) {
+      // No email configured — log them in directly
+      const token = signToken(user._id);
+      return res.status(201).json({ token, user: userPayload(user) });
+    }
+
+    // Email IS configured — send verification link
     try {
-      const token = user.createVerificationToken();
+      const vToken = user.createVerificationToken();
       await user.save({ validateBeforeSave: false });
-      await sendVerificationEmail(user.email, user.name, token);
+      await sendVerificationEmail(user.email, user.name, vToken);
     } catch (emailErr) {
-      console.warn('Verification email failed (non-fatal):', emailErr.message);
+      // Email failed but account created — still tell them to verify
+      console.warn('Verification email failed:', emailErr.message);
     }
 
     res.status(201).json({
