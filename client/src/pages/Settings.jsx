@@ -14,6 +14,8 @@ export default function Settings() {
     cgpa: user?.cgpa || '',
     startDate: user?.startDate ? new Date(user.startDate).toISOString().split('T')[0] : '',
   });
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '' });
+  const [changingPw, setChangingPw] = useState(false);
   const [companies, setCompanies] = useState(
     user?.targetCompanies?.length ? user.targetCompanies : DEFAULT_COMPANIES
   );
@@ -83,6 +85,24 @@ export default function Settings() {
       showToast('Error', err.message);
     } finally {
       setImporting(false);
+    }
+  };
+
+  const changePassword = async (e) => {
+    e.preventDefault();
+    if (pwForm.newPassword.length < 6) { showToast('⚠️ Too short', 'New password must be at least 6 characters.'); return; }
+    setChangingPw(true);
+    try {
+      await request('/api/auth/password', {
+        method: 'PATCH',
+        body: JSON.stringify(pwForm),
+      });
+      showToast('✅ Password Changed', 'Your password has been updated.');
+      setPwForm({ currentPassword: '', newPassword: '' });
+    } catch (err) {
+      showToast('Error', err.message);
+    } finally {
+      setChangingPw(false);
     }
   };
 
@@ -174,6 +194,37 @@ export default function Settings() {
         <button className="btn" onClick={importFromLocalStorage} disabled={importing}>
           {importing ? 'Importing...' : '📥 Import from localStorage'}
         </button>
+      </div>
+
+      {/* Change Password */}
+      <div className="settings-section">
+        <div className="settings-section-title">🔑 Change Password</div>
+        <form onSubmit={changePassword}>
+          <div className="form-group">
+            <label className="form-label">Current Password</label>
+            <input
+              type="password"
+              value={pwForm.currentPassword}
+              onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))}
+              required
+              placeholder="Your current password"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">New Password</label>
+            <input
+              type="password"
+              value={pwForm.newPassword}
+              onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))}
+              required
+              minLength={6}
+              placeholder="At least 6 characters"
+            />
+          </div>
+          <button type="submit" className="btn btn-green" disabled={changingPw}>
+            {changingPw ? 'Updating...' : '🔑 Update Password'}
+          </button>
+        </form>
       </div>
 
       {/* Danger Zone */}

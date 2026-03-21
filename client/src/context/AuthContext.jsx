@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -9,12 +10,33 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const savedToken = localStorage.getItem('pos_token');
-    const savedUser = localStorage.getItem('pos_user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+    if (!savedToken) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+    // Restore token immediately so ProtectedRoute doesn't flash /login
+    setToken(savedToken);
+
+    // Refresh user from DB — picks up any changes made on another device
+    fetch(`${API_BASE}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${savedToken}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Unauthorized');
+        return res.json();
+      })
+      .then(({ user: freshUser }) => {
+        setUser(freshUser);
+        localStorage.setItem('pos_user', JSON.stringify(freshUser));
+      })
+      .catch(() => {
+        // Token expired or invalid — clear everything and force re-login
+        setToken(null);
+        setUser(null);
+        localStorage.removeItem('pos_token');
+        localStorage.removeItem('pos_user');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const login = (newToken, newUser) => {

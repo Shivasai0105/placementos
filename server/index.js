@@ -1,6 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const morgan = require('morgan');
+const helmet = require('helmet');
+const compression = require('compression');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -8,6 +11,18 @@ const progressRoutes = require('./routes/progress');
 const applicationRoutes = require('./routes/applications');
 
 const app = express();
+
+// ─── Security Headers (Helmet) ────────────────────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow Vercel frontend
+}));
+
+// ─── Gzip Compression ─────────────────────────────────────────────────────────
+app.use(compression());
+
+// ─── HTTP Request Logging (Morgan) ───────────────────────────────────────────
+// Use 'combined' in production for full Apache-style logs, 'dev' for coloured short logs
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 // Set ALLOWED_ORIGINS on Render as a comma-separated list, e.g.:
@@ -30,12 +45,11 @@ const corsOptions = {
 };
 
 // ⚠️ OPTIONS pre-flight MUST come BEFORE app.use(cors(...))
-// so that preflight requests are handled before origin-check can block them.
 app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
 // ─── Body Parser ─────────────────────────────────────────────────────────────
-app.use(express.json());
+app.use(express.json({ limit: '10kb' })); // limit body size to prevent large payloads
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
@@ -44,7 +58,7 @@ app.use('/api/applications', applicationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'PlacementOS API running 🚀' });
+  res.json({ status: 'ok', message: 'PlacementOS API running 🚀', env: process.env.NODE_ENV });
 });
 
 // ─── 404 Handler (always JSON, never HTML) ───────────────────────────────────
