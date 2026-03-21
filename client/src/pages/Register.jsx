@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
+import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -12,6 +13,8 @@ export default function Register() {
   const [done, setDone] = useState(false); // "check your email" state
 
   const { request } = useApi();
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleSubmit = async (e) => {
@@ -20,7 +23,7 @@ export default function Register() {
     if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setLoading(true);
     try {
-      await request('/api/auth/register', {
+      const data = await request('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({
           name: form.name,
@@ -30,7 +33,15 @@ export default function Register() {
           startDate: form.startDate,
         }),
       });
-      setDone(true); // show "check your email" card
+
+      if (data.token) {
+        // Auto-verify mode (no email configured) — log in directly
+        login(data.token, data.user);
+        navigate('/');
+      } else {
+        // Email verification required — show "check inbox" screen
+        setDone(true);
+      }
     } catch (err) {
       setError(err.message || 'Registration failed');
     } finally {
