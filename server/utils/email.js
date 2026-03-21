@@ -1,19 +1,30 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-const APP_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+// ─── Brevo SMTP Transporter ───────────────────────────────────────────────────
+// Sign up free at brevo.com → Settings → SMTP & API → SMTP tab → copy key
+// Set these in Render env vars:
+//   BREVO_SMTP_USER = your Brevo account email (e.g. you@gmail.com)
+//   BREVO_SMTP_KEY  = your Brevo SMTP key (starts with xsmtp...)
+//   CLIENT_URL      = https://your-vercel-app.vercel.app
 
-// ─── Resend client (lazy — only created if API key is present) ────────────────
-let resend = null;
-if (process.env.RESEND_API_KEY) {
-  resend = new Resend(process.env.RESEND_API_KEY);
+let transporter = null;
+if (process.env.BREVO_SMTP_KEY && process.env.BREVO_SMTP_USER) {
+  transporter = nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.BREVO_SMTP_USER,
+      pass: process.env.BREVO_SMTP_KEY,
+    },
+  });
 }
 
-/**
- * Returns true if email sending is configured and ready.
- */
-exports.emailEnabled = () => !!resend;
+const FROM = `PlacementOS <${process.env.BREVO_SMTP_USER || 'noreply@placementos.com'}>`;
+const APP_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-const FROM = process.env.EMAIL_FROM || 'PlacementOS <onboarding@resend.dev>';
+/** Returns true if email sending is configured */
+exports.emailEnabled = () => !!transporter;
 
 // ─── Base HTML template ───────────────────────────────────────────────────────
 const btnStyle = [
@@ -55,9 +66,8 @@ const baseTemplate = (content) => `
 
 // ─── Send helper ──────────────────────────────────────────────────────────────
 const sendEmail = async ({ to, subject, html }) => {
-  if (!resend) throw new Error('RESEND_API_KEY not configured');
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
-  if (error) throw new Error(`Resend error: ${error.message}`);
+  if (!transporter) throw new Error('Email not configured (BREVO_SMTP_KEY missing)');
+  await transporter.sendMail({ from: FROM, to, subject, html });
 };
 
 // ─── Verification email ───────────────────────────────────────────────────────
