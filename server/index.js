@@ -12,6 +12,9 @@ const applicationRoutes = require('./routes/applications');
 
 const app = express();
 
+// ─── Trust Render's proxy (fixes express-rate-limit X-Forwarded-For warning) ──
+app.set('trust proxy', 1);
+
 // ─── Security Headers (Helmet) ────────────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow Vercel frontend

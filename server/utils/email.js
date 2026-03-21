@@ -1,30 +1,49 @@
-const nodemailer = require('nodemailer');
+const https = require('https');
 
-// ─── Brevo SMTP Transporter ───────────────────────────────────────────────────
-// Sign up free at brevo.com → Settings → SMTP & API → SMTP tab → copy key
-// Set these in Render env vars:
-//   BREVO_SMTP_USER = your Brevo account email (e.g. you@gmail.com)
-//   BREVO_SMTP_KEY  = your Brevo SMTP key (starts with xsmtp...)
-//   CLIENT_URL      = https://your-vercel-app.vercel.app
+// ─── Brevo REST API (uses HTTPS port 443 — never blocked by cloud hosts) ─────
+// SMTP (port 587/465) is often blocked on free tier hosts like Render.
+// REST API is the reliable alternative.
+//
+// Set in Render env vars:
+//   BREVO_API_KEY = your Brevo v3 API key (Settings → API Keys → Create)
+//   CLIENT_URL    = https://your-app.vercel.app
 
-let transporter = null;
-if (process.env.BREVO_SMTP_KEY && process.env.BREVO_SMTP_USER) {
-  transporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.BREVO_SMTP_USER,
-      pass: process.env.BREVO_SMTP_KEY,
-    },
-  });
-}
-
-const FROM = `PlacementOS <${process.env.BREVO_SMTP_USER || 'noreply@placementos.com'}>`;
 const APP_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-/** Returns true if email sending is configured */
-exports.emailEnabled = () => !!transporter;
+/** Returns true if Brevo API is configured */
+exports.emailEnabled = () => !!process.env.BREVO_API_KEY;
+
+// ─── HTTP helper (no external deps — uses Node built-in https) ───────────────
+const postToBrevo = (payload) =>
+  new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const req = https.request(
+      {
+        hostname: 'api.brevo.com',
+        path: '/v3/smtp/email',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': process.env.BREVO_API_KEY,
+          'Content-Length': Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          if (res.statusCode >= 400) {
+            reject(new Error(`Brevo API error ${res.statusCode}: ${data}`));
+          } else {
+            resolve(JSON.parse(data || '{}'));
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
 
 // ─── Base HTML template ───────────────────────────────────────────────────────
 const btnStyle = [
@@ -64,19 +83,14 @@ const baseTemplate = (content) => `
 </body>
 </html>`;
 
-// ─── Send helper ──────────────────────────────────────────────────────────────
-const sendEmail = async ({ to, subject, html }) => {
-  if (!transporter) throw new Error('Email not configured (BREVO_SMTP_KEY missing)');
-  await transporter.sendMail({ from: FROM, to, subject, html });
-};
-
 // ─── Verification email ───────────────────────────────────────────────────────
 exports.sendVerificationEmail = async (to, name, token) => {
   const link = `${APP_URL}/verify-email/${token}`;
-  await sendEmail({
-    to,
+  await postToBrevo({
+    sender: { name: 'PlacementOS', email: 'onboarding@resend.dev' },
+    to: [{ email: to, name }],
     subject: '✉️ Verify your PlacementOS email',
-    html: baseTemplate(`
+    htmlContent: baseTemplate(`
       <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Verify your email ✉️</div>
       <div style="font-size:15px;color:#999;line-height:1.6;margin-bottom:4px;">
         Hi <strong style="color:#fff;">${name}</strong>, welcome to PlacementOS!<br>
@@ -95,10 +109,11 @@ exports.sendVerificationEmail = async (to, name, token) => {
 // ─── Password reset email ─────────────────────────────────────────────────────
 exports.sendPasswordResetEmail = async (to, name, token) => {
   const link = `${APP_URL}/reset-password/${token}`;
-  await sendEmail({
-    to,
+  await postToBrevo({
+    sender: { name: 'PlacementOS', email: 'onboarding@resend.dev' },
+    to: [{ email: to, name }],
     subject: '🔑 Reset your PlacementOS password',
-    html: baseTemplate(`
+    htmlContent: baseTemplate(`
       <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Reset your password 🔑</div>
       <div style="font-size:15px;color:#999;line-height:1.6;margin-bottom:4px;">
         Hi <strong style="color:#fff;">${name}</strong>,<br>
