@@ -10,6 +10,9 @@ import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Applications from './pages/Applications';
 import CompanyQuestions from './pages/CompanyQuestions';
+import VerifyEmail from './pages/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Navbar from './components/Navbar';
 import MobileNav from './components/MobileNav';
 import Toast from './components/Toast';
@@ -59,6 +62,9 @@ export default function App() {
       <Routes>
         <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
+        <Route path="/verify-email/:token" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={token ? <Navigate to="/" replace /> : <ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
         <Route path="/plan" element={<ProtectedRoute><AppLayout><Plan /></AppLayout></ProtectedRoute>} />
         <Route path="/problems" element={<ProtectedRoute><AppLayout><Problems /></AppLayout></ProtectedRoute>} />
