@@ -9,6 +9,8 @@ const https = require('https');
 //   CLIENT_URL    = https://your-app.vercel.app
 
 const APP_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+// Your Brevo account email — must match what you signed up with on brevo.com
+const SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'placementos@gmail.com';
 
 /** Returns true if Brevo API is configured */
 exports.emailEnabled = () => !!process.env.BREVO_API_KEY;
@@ -87,7 +89,7 @@ const baseTemplate = (content) => `
 exports.sendVerificationEmail = async (to, name, token) => {
   const link = `${APP_URL}/verify-email/${token}`;
   await postToBrevo({
-    sender: { name: 'PlacementOS', email: 'onboarding@resend.dev' },
+    sender: { name: 'PlacementOS', email: SENDER_EMAIL },
     to: [{ email: to, name }],
     subject: '✉️ Verify your PlacementOS email',
     htmlContent: baseTemplate(`
@@ -110,7 +112,7 @@ exports.sendVerificationEmail = async (to, name, token) => {
 exports.sendPasswordResetEmail = async (to, name, token) => {
   const link = `${APP_URL}/reset-password/${token}`;
   await postToBrevo({
-    sender: { name: 'PlacementOS', email: 'onboarding@resend.dev' },
+    sender: { name: 'PlacementOS', email: SENDER_EMAIL },
     to: [{ email: to, name }],
     subject: '🔑 Reset your PlacementOS password',
     htmlContent: baseTemplate(`
