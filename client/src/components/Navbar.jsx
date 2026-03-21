@@ -26,6 +26,12 @@ export default function Navbar() {
         <NavLink to="/problems" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
           💻 Problems
         </NavLink>
+        <NavLink to="/company" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+          🏢 Companies
+        </NavLink>
+        <NavLink to="/applications" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+          📋 Tracker
+        </NavLink>
         <NavLink to="/analytics" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
           📈 Analytics
         </NavLink>

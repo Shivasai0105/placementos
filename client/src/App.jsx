@@ -8,6 +8,8 @@ import Plan from './pages/Plan';
 import Problems from './pages/Problems';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
+import Applications from './pages/Applications';
+import CompanyQuestions from './pages/CompanyQuestions';
 import Navbar from './components/Navbar';
 import MobileNav from './components/MobileNav';
 import Toast from './components/Toast';
@@ -57,31 +59,13 @@ export default function App() {
       <Routes>
         <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/register" element={token ? <Navigate to="/" replace /> : <Register />} />
-        <Route path="/" element={
-          <ProtectedRoute>
-            <AppLayout><Dashboard /></AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/plan" element={
-          <ProtectedRoute>
-            <AppLayout><Plan /></AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/problems" element={
-          <ProtectedRoute>
-            <AppLayout><Problems /></AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/analytics" element={
-          <ProtectedRoute>
-            <AppLayout><Analytics /></AppLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <AppLayout><Settings /></AppLayout>
-          </ProtectedRoute>
-        } />
+        <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
+        <Route path="/plan" element={<ProtectedRoute><AppLayout><Plan /></AppLayout></ProtectedRoute>} />
+        <Route path="/problems" element={<ProtectedRoute><AppLayout><Problems /></AppLayout></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute><AppLayout><Analytics /></AppLayout></ProtectedRoute>} />
+        <Route path="/applications" element={<ProtectedRoute><AppLayout><Applications /></AppLayout></ProtectedRoute>} />
+        <Route path="/company" element={<ProtectedRoute><AppLayout><CompanyQuestions /></AppLayout></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
