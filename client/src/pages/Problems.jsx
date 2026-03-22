@@ -37,9 +37,6 @@ export default function Problems() {
 
   const isDone = (id) => !!progress.problems[`p_${id}`];
 
-  const total = PROBLEMS.reduce((s, sec) => s + sec.problems.length, 0);
-  const done = PROBLEMS.reduce((s, sec) => s + sec.problems.filter(p => isDone(p.id)).length, 0);
-
   // Normalize search query
   const q = search.trim().toLowerCase();
 
@@ -49,84 +46,114 @@ export default function Problems() {
     return list;
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>Loading problems...</div>;
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
+      <div className="blink-cursor">QUERYING REPOSITORY...</div>
+    </div>
+  );
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ fontSize: '1rem', fontWeight: 800 }}>
-          Problem Bank <span style={{ color: 'var(--green)' }}>{done}/{total}</span>
+    <div className="problems-sys">
+      
+      {/* ── HEADER ── */}
+      <div className="pb-header">
+        <div className="pb-label">CORE REPOSITORY</div>
+        <h1 className="pb-title">
+          PROBLEM_BANK<span className="pb-ext">.sys</span>
+        </h1>
+      </div>
+
+      {/* ── CONTROLS ── */}
+      <div className="pb-controls">
+        <div className="pb-search-wrapper">
+          <span className="pb-search-icon">{'🔍'}</span>
+          <input
+            type="text"
+            className="pb-search"
+            placeholder="QUERY_PROBLEM_NAME_OR_TAG..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoComplete="off"
+          />
         </div>
-        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '0.65rem', color: 'var(--muted)' }}>
-          {Math.round(done / total * 100)}% COMPLETE
+        
+        <div className="pb-filters">
+          {['all', 'easy', 'medium', 'hard'].map(f => (
+            <button 
+              key={f} 
+              className={`pb-filter-btn ${filter === f ? 'active' : ''}`} 
+              onClick={() => setFilter(f)}
+            >
+              {f.toUpperCase()}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="prog-bar" style={{ marginBottom: '16px', height: '4px' }}>
-        <div className="prog-fill" style={{ width: `${Math.round(done / total * 100)}%` }} />
-      </div>
+      {/* ── PROBLEM SECTIONS ── */}
+      <div className="pb-list">
+        {PROBLEMS.map(section => {
+          const filtered = getFiltered(section.problems);
+          if (filtered.length === 0) return null;
+          
+          const titleFmt = section.topic.toUpperCase().replace(/\s+/g, '_');
 
-      {/* Search bar */}
-      <div className="search-bar">
-        <span className="search-icon">🔍</span>
-        <input
-          type="text"
-          placeholder="Search problems by name or LC number…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          autoComplete="off"
-        />
-        {search && (
-          <span className="search-clear" onClick={() => setSearch('')} title="Clear search">✕</span>
+          return (
+            <div key={section.topic} className="pb-section">
+              <div className="pb-section-header">
+                <span className="pb-sec-title">{titleFmt}</span>
+                <span className="pb-sec-count">COUNT: {filtered.length}</span>
+              </div>
+              
+              <div className="pb-rows">
+                {filtered.map(p => {
+                  const done = isDone(p.id);
+                  // Generate fake tags for aesthetic if missing
+                  const tags = (p.name.toLowerCase().includes('tree') || p.name.toLowerCase().includes('graph'))
+                    ? ['DFS', 'BFS'] : ['HASH_MAP', 'ARRAY'];
+
+                  return (
+                    <div
+                      key={p.id}
+                      className={`pb-row ${done ? 'done' : ''}`}
+                      onClick={() => toggleProb(p.id)}
+                    >
+                      <div className="pb-col-num">{String(p.lc || p.id).padStart(3, '0')}</div>
+                      
+                      <div className="pb-col-main">
+                        <div className="pb-prob-title">{p.name}</div>
+                        <div className="pb-prob-tags">
+                          {tags.map((t, idx) => <span key={idx}>{t}</span>)}
+                        </div>
+                      </div>
+                      
+                      <div className="pb-col-diff">
+                        <span className={`pb-badge diff-${p.diff === 'medium' ? 'med' : p.diff}`}>
+                          {p.diff.toUpperCase()}
+                        </span>
+                      </div>
+                      
+                      {done && (
+                        <div className="pb-col-status">
+                          <span className="pb-status-icon">✓</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Empty state when searching */}
+        {q && PROBLEMS.every(sec => getFiltered(sec.problems).length === 0) && (
+          <div className="pb-empty">
+            <span className="blink-cursor">&gt; NO_RESULTS_FOUND</span>
+          </div>
         )}
       </div>
 
-      {/* Filter tabs */}
-      <div className="tabs">
-        {['all', 'easy', 'medium', 'hard'].map(f => (
-          <button key={f} className={`tab${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
-            {f.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
-      {/* Problem Sections */}
-      {PROBLEMS.map(section => {
-        const filtered = getFiltered(section.problems);
-        if (filtered.length === 0) return null;
-        const secDone = filtered.filter(p => isDone(p.id)).length;
-
-        return (
-          <div key={section.topic} className="prob-section">
-            <div className="prob-section-title">
-              {section.topic} ({secDone}/{filtered.length})
-            </div>
-            {filtered.map(p => (
-              <div
-                key={p.id}
-                className={`prob-item${isDone(p.id) ? ' done' : ''}`}
-                onClick={() => toggleProb(p.id)}
-              >
-                <div className="prob-check"><span className="prob-tick">✓</span></div>
-                <div className="prob-num">{p.lc}</div>
-                <div className="prob-name">{p.name}</div>
-                <span className={`prob-diff diff-${p.diff === 'medium' ? 'med' : p.diff}`}>
-                  {p.diff.toUpperCase()}
-                </span>
-                <div className="prob-topic">{section.topic.split(' ')[0]}</div>
-              </div>
-            ))}
-          </div>
-        );
-      })}
-
-      {/* Empty state when searching */}
-      {q && PROBLEMS.every(sec => getFiltered(sec.problems).length === 0) && (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontFamily: "'JetBrains Mono',monospace", fontSize: '0.75rem' }}>
-          No problems found for "{search}"
-        </div>
-      )}
     </div>
   );
 }

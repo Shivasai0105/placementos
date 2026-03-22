@@ -4,15 +4,14 @@ import { useTheme } from '../hooks/useTheme';
 import { useNavigate } from 'react-router-dom';
 
 const navItems = [
-  { to: '/',              end: true,  icon: '📊', label: 'Dashboard'   },
-  { to: '/plan',          end: false, icon: '📅', label: 'Plan'        },
-  { to: '/problems',      end: false, icon: '💻', label: 'Problems'    },
-  { to: '/company',       end: false, icon: '🏢', label: 'Companies'   },
-  { to: '/applications',  end: false, icon: '📋', label: 'Tracker'     },
-  { to: '/analytics',     end: false, icon: '📈', label: 'Analytics'   },
-  { to: '/comm-prep',     end: false, icon: '🎤', label: 'Comm Prep'   },
-  { to: '/interview-prep',end: false, icon: '💡', label: 'Interview'   },
-  { to: '/settings',      end: false, icon: '⚙️', label: 'Settings'    },
+  { to: '/',              end: true,  icon: '>', label: 'DASHBOARD'   },
+  { to: '/plan',          end: false, icon: '>', label: 'ROADMAP'     },
+  { to: '/applications',  end: false, icon: '>', label: 'TRACKER'     },
+  { to: '/problems',      end: false, icon: '>', label: 'PROBLEMS'    },
+  { to: '/company',       end: false, icon: '>', label: 'COMPANIES'   },
+  { to: '/comm-prep',     end: false, icon: '>', label: 'COMMUNICATION'},
+  { to: '/interview-prep',end: false, icon: '>', label: 'INTERVIEW'   },
+  { to: '/settings',      end: false, icon: '>', label: 'CONFIG'      },
 ];
 
 export default function MobileSidebar({ open, onClose }) {
@@ -28,29 +27,23 @@ export default function MobileSidebar({ open, onClose }) {
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className={`sidebar-backdrop${open ? ' open' : ''}`}
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
+      <div className={`sidebar-backdrop${open ? ' open' : ''}`} onClick={onClose} />
       <aside className={`mobile-sidebar${open ? ' open' : ''}`}>
-        {/* Header */}
+        
         <div className="msb-header">
-          <span className="msb-logo">PlacementOS</span>
+          <span className="msb-logo"><span style={{color: 'var(--green)'}}>&gt;_</span> PlacementOS</span>
           <button className="msb-close" onClick={onClose} aria-label="Close menu">✕</button>
         </div>
 
-        {/* User info */}
         {user && (
           <div className="msb-user">
-            <span className="msb-user-icon">👤</span>
-            <span className="msb-user-name">{user.name?.toUpperCase()}</span>
+            <div className="msb-user-icon tn-avatar" style={{width: 24, height: 24, fontSize: '0.7rem'}}>
+              {user.name?.charAt(0).toUpperCase()}
+            </div>
+            <span className="msb-user-name">AUTH: {user.name?.toUpperCase()}</span>
           </div>
         )}
 
-        {/* Nav links */}
         <nav className="msb-nav">
           {navItems.map(({ to, end, icon, label }) => (
             <NavLink
@@ -66,15 +59,15 @@ export default function MobileSidebar({ open, onClose }) {
           ))}
         </nav>
 
-        {/* Footer actions */}
         <div className="msb-footer">
           <button className="msb-theme-btn" onClick={toggleTheme}>
-            {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            <span style={{color: 'var(--muted)'}}>[{theme === 'dark' ? '☀️' : '🌙'}]</span> TOGGLE_UI_MODE
           </button>
           <button className="msb-logout-btn" onClick={handleLogout}>
-            🚪 Logout
+            TERMINATE_SESSION <span style={{marginLeft: 'auto'}}>[⎋]</span>
           </button>
         </div>
+        
       </aside>
     </>
   );

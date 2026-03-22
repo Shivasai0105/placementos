@@ -3,30 +3,33 @@ import { useApi } from '../hooks/useApi';
 import { showToast } from '../components/Toast';
 import { DSA_INTERVIEW, MERN_INTERVIEW, CORE_CS_INTERVIEW } from '../data/interviewPrep';
 
-const TAG_STYLES = {
-  easy: { bg: 'rgba(0,232,122,0.1)', color: 'var(--green)' },
-  medium: { bg: 'rgba(255,184,0,0.1)', color: 'var(--amber)' },
-  hard: { bg: 'rgba(255,77,106,0.1)', color: 'var(--red)' },
-};
-
 const TABS = [
-  { key: 'dsa', label: '💻 DSA', data: DSA_INTERVIEW, color: 'var(--green)' },
-  { key: 'mern', label: '🌐 MERN', data: MERN_INTERVIEW, color: 'var(--blue)' },
-  { key: 'cs', label: '📚 Core CS', data: CORE_CS_INTERVIEW, color: 'var(--purple)' },
+  { key: 'dsa', label: 'DSA Mastery', data: DSA_INTERVIEW, color: 'var(--green)' },
+  { key: 'mern', label: 'MERN Stack', data: MERN_INTERVIEW, color: 'var(--blue)' },
+  { key: 'cs', label: 'Core CS', data: CORE_CS_INTERVIEW, color: 'var(--purple)' },
 ];
 
 export default function InterviewPrep() {
   const { request } = useApi();
   const [progress, setProgress] = useState({ interviewReviewed: {} });
+  const [stats, setStats] = useState(null);
+  const [upcoming, setUpcoming] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dsa');
-  const [openQuestion, setOpenQuestion] = useState(null);
   const [search, setSearch] = useState('');
 
   const fetchProgress = useCallback(async () => {
     try {
-      const data = await request('/api/progress');
+      const [data, statsData, appsData] = await Promise.all([
+        request('/api/progress'),
+        request('/api/progress/stats'),
+        request('/api/applications')
+      ]);
       setProgress({ interviewReviewed: data.interviewReviewed || {} });
+      setStats(statsData);
+      
+      const nextInterview = appsData.find(a => a.status === 'interview');
+      setUpcoming(nextInterview || null);
     } catch (err) {
       showToast('Error', err.message);
     } finally {
@@ -52,194 +55,214 @@ export default function InterviewPrep() {
 
   const isReviewed = (qId) => !!progress.interviewReviewed[qId];
 
-  // Compute totals per tab
-  const getTabData = (key) => TABS.find(t => t.key === key);
-  const totalForTab = (data) => data.reduce((s, cat) => s + cat.questions.length, 0);
-  const doneForTab = (data) => data.reduce((s, cat) => s + cat.questions.filter(q => isReviewed(q.id)).length, 0);
+  // Stats
+  const totalQuestions = TABS.reduce((sum, tab) => sum + tab.data.reduce((s, cat) => s + cat.questions.length, 0), 0);
+  const doneQuestions = Object.keys(progress.interviewReviewed).filter(k => progress.interviewReviewed[k]).length;
+  const readiness = totalQuestions > 0 ? Math.round((doneQuestions / totalQuestions) * 100) : 0;
+  
+  // Dynamic streak from stats
+  const streak = stats?.streak || 0;
 
+  const currentTab = TABS.find(t => t.key === activeTab);
   const q = search.trim().toLowerCase();
-  const currentTab = getTabData(activeTab);
 
   const filteredData = currentTab.data.map(cat => ({
     ...cat,
     questions: q ? cat.questions.filter(item => item.q.toLowerCase().includes(q) || item.a?.toLowerCase().includes(q) || item.hint?.toLowerCase().includes(q)) : cat.questions,
   })).filter(cat => cat.questions.length > 0);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>Loading...</div>;
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
+      <div className="blink-cursor">LOADING HUB...</div>
+    </div>
+  );
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '4px' }}>
-          💻 Interview Prep Hub
+    <div className="iph-sys">
+      
+      {/* ── TOP STATS WIDGETS ── */}
+      <div className="iph-top-stats">
+        {/* Readiness */}
+        <div className="iph-stat-card readiness">
+          <div className="iph-stat-header">PLACEMENT READINESS</div>
+          <div className="iph-stat-body">
+            <div className="iph-stat-big">{readiness}<span className="pct">%</span></div>
+            <div className="iph-stat-sub green">+2% this session</div>
+          </div>
+          <div className="iph-stat-progress">
+            <div className="iph-prog-track"><div className="iph-prog-fill" style={{ width: `${readiness}%` }} /></div>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          {TABS.map(tab => {
-            const done = doneForTab(tab.data);
-            const total = totalForTab(tab.data);
-            return (
-              <div key={tab.key} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '0.6rem', color: 'var(--muted)' }}>
-                <span style={{ color: tab.color }}>{tab.label.split(' ')[1]}</span>: {done}/{total}
-              </div>
-            );
-          })}
+        
+        {/* Questions Solved */}
+        <div className="iph-stat-card solved">
+          <div className="iph-stat-header">QUESTIONS SOLVED</div>
+          <div className="iph-stat-body">
+            <div className="iph-stat-big">{doneQuestions} <span className="slash">/ {totalQuestions}</span></div>
+          </div>
+          <div className="iph-stat-segments">
+            <div className={`iph-seg-${readiness > 25 ? 'fill' : 'empty'}`} />
+            <div className={`iph-seg-${readiness > 50 ? 'fill' : 'empty'}`} />
+            <div className={`iph-seg-${readiness > 75 ? 'fill' : 'empty'}`} />
+            <div className={`iph-seg-${readiness === 100 ? 'fill' : 'empty'}`} />
+          </div>
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="tabs">
-        {TABS.map(tab => {
-          const done = doneForTab(tab.data);
-          const total = totalForTab(tab.data);
-          const pct = Math.round(done / total * 100);
-          return (
-            <button
-              key={tab.key}
-              className={`tab${activeTab === tab.key ? ' active' : ''}`}
-              onClick={() => { setActiveTab(tab.key); setSearch(''); setOpenQuestion(null); }}
-            >
-              {tab.label} · {pct}%
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Progress bar for current tab */}
-      <div style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', fontFamily: "'JetBrains Mono',monospace", color: 'var(--muted)', marginBottom: '5px' }}>
-          <span>{doneForTab(currentTab.data)} reviewed</span>
-          <span>{totalForTab(currentTab.data) - doneForTab(currentTab.data)} remaining</span>
-        </div>
-        <div className="prog-bar" style={{ height: '3px' }}>
-          <div className="prog-fill" style={{
-            width: `${Math.round(doneForTab(currentTab.data) / totalForTab(currentTab.data) * 100)}%`,
-            background: currentTab.color,
-          }} />
+        
+        {/* Active Streak */}
+        <div className="iph-stat-card streak">
+          <div className="iph-stat-header">ACTIVE STREAK</div>
+          <div className="iph-stat-body">
+            <div className="iph-stat-big">{streak} <span className="days">DAYS</span></div>
+          </div>
+          <div className="iph-streak-icon">⚡</div>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="search-bar" style={{ marginBottom: '16px' }}>
-        <span className="search-icon">🔍</span>
-        <input
-          type="text"
-          placeholder={`Search ${activeTab.toUpperCase()} questions…`}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          autoComplete="off"
-        />
-        {search && <span className="search-clear" onClick={() => setSearch('')}>✕</span>}
-      </div>
-
-      {/* Question Sections */}
-      {filteredData.map(cat => {
-        const catDone = cat.questions.filter(q => isReviewed(q.id)).length;
-        return (
-          <div key={cat.topic || cat.category} style={{ marginBottom: '24px' }}>
-            {/* Category Header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: '10px', paddingBottom: '8px', borderBottom: `2px solid ${currentTab.color}20`,
-            }}>
-              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '0.65rem', fontWeight: 700, color: 'var(--muted2)', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                {cat.topic || cat.category}
-              </div>
-              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '0.58rem', color: catDone === cat.questions.length ? 'var(--green)' : 'var(--muted)' }}>
-                {catDone}/{cat.questions.length}
-              </div>
-            </div>
-
-            {/* Questions */}
-            {cat.questions.map(item => {
-              const done = isReviewed(item.id);
-              const isOpen = openQuestion === item.id;
-
+      {/* ── MAIN LAYOUT ── */}
+      <div className="iph-layout">
+        
+        {/* Left Sidebar: CORE TRACKS */}
+        <div className="iph-sidebar">
+          <div className="iph-sidebar-title">CORE TRACKS</div>
+          
+          <div className="iph-tracks">
+            {TABS.map(tab => {
+              const tabTotal = tab.data.reduce((s, cat) => s + cat.questions.length, 0);
+              const tabDone = tab.data.reduce((s, cat) => s + cat.questions.filter(item => isReviewed(item.id)).length, 0);
+              const isActive = activeTab === tab.key;
+              
               return (
-                <div key={item.id} style={{
-                  background: 'var(--surface)',
-                  border: `1px solid ${done ? 'rgba(0,232,122,0.25)' : 'var(--border)'}`,
-                  borderRadius: '8px',
-                  marginBottom: '6px',
-                  overflow: 'hidden',
-                  transition: 'border-color 0.2s',
-                }}>
-                  {/* Question Row */}
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 13px', cursor: 'pointer', transition: 'background 0.15s' }}
-                    onClick={() => setOpenQuestion(isOpen ? null : item.id)}
-                  >
-                    {/* Checkbox */}
-                    <div
-                      onClick={(e) => { e.stopPropagation(); toggleReviewed(item.id); }}
-                      style={{
-                        width: '16px', height: '16px', borderRadius: '3px', border: `1.5px solid ${done ? currentTab.color : 'var(--border2)'}`,
-                        background: done ? currentTab.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s', cursor: 'pointer',
-                      }}
-                    >
-                      {done && <span style={{ color: '#000', fontSize: '9px', fontWeight: 900 }}>✓</span>}
-                    </div>
-
-                    {/* Question text */}
-                    <div style={{ flex: 1, fontSize: '0.85rem', fontWeight: done ? 400 : 600, color: done ? 'var(--muted2)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none' }}>
-                      {item.q}
-                    </div>
-
-                    {/* Difficulty tag (DSA only) */}
-                    {item.tag && (
-                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '0.52rem', padding: '2px 7px', borderRadius: '3px', flexShrink: 0, ...TAG_STYLES[item.tag] }}>
-                        {item.tag.toUpperCase()}
-                      </span>
-                    )}
-
-                    {/* Chevron */}
-                    <span style={{ color: 'var(--muted)', fontSize: '0.6rem', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}>▼</span>
-                  </div>
-
-                  {/* Answer / Hint Panel */}
-                  {isOpen && (
-                    <div style={{ padding: '10px 15px 14px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
-                      {/* Hint or Answer */}
-                      <div style={{
-                        background: `${currentTab.color}08`, borderRadius: '6px', padding: '12px 14px',
-                        borderLeft: `3px solid ${currentTab.color}`, marginBottom: '10px',
-                      }}>
-                        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '0.55rem', color: currentTab.color, letterSpacing: '1px', marginBottom: '6px' }}>
-                          {item.hint ? '💡 APPROACH HINT' : '✅ ANSWER'}
-                        </div>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text)', lineHeight: '1.7' }}>
-                          {item.hint || item.a}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => toggleReviewed(item.id)}
-                        style={{
-                          width: '100%', padding: '7px', borderRadius: '5px', cursor: 'pointer',
-                          fontFamily: "'JetBrains Mono',monospace", fontSize: '0.6rem', letterSpacing: '0.5px', fontWeight: 700,
-                          background: done ? 'transparent' : currentTab.color,
-                          color: done ? currentTab.color : '#000',
-                          border: `1px solid ${currentTab.color}${done ? '50' : ''}`,
-                          transition: 'all 0.2s',
-                        }}
-                      >
-                        {done ? '✓ REVIEWED — CLICK TO RESET' : '✓ MARK AS REVIEWED'}
-                      </button>
-                    </div>
-                  )}
+                <div 
+                  key={tab.key} 
+                  className={`iph-track-item ${isActive ? 'active' : ''}`}
+                  onClick={() => { setActiveTab(tab.key); setSearch(''); }}
+                >
+                  <div className="iph-track-icon">{isActive ? '{}' : '❖'}</div>
+                  <div className="iph-track-name">{tab.label}</div>
+                  <div className="iph-track-score">{String(tabDone).padStart(2, '0')}/{tabTotal}</div>
                 </div>
               );
             })}
           </div>
-        );
-      })}
 
-      {/* Empty state */}
-      {filteredData.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontFamily: "'JetBrains Mono',monospace", fontSize: '0.75rem' }}>
-          No questions found for "{search}"
+          <div className="iph-upcoming">
+            <div className="iph-up-label">UPCOMING INTERVIEW</div>
+            {upcoming ? (
+              <>
+                <div className="iph-up-company">{upcoming.company} • {upcoming.role}</div>
+                <div className="iph-up-time">System configured for assessment</div>
+                <div className="iph-up-bar"><div className="iph-up-fill" style={{width: '80%'}} /></div>
+              </>
+            ) : (
+              <>
+                <div className="iph-up-company" style={{color: 'var(--muted)'}}>None Scheduled</div>
+                <div className="iph-up-time">Update your Tracker pipeline</div>
+                <div className="iph-up-bar"><div className="iph-up-fill" style={{width: '0%'}} /></div>
+              </>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Right Content Area */}
+        <div className="iph-content">
+          
+          {/* Controls */}
+          <div className="iph-controls">
+            <div className="iph-search-box">
+              <span className="iph-sh-icon">&gt;_</span>
+              <input 
+                type="text" 
+                className="iph-search-input" 
+                placeholder="QUERY_PROBLEM_SET [SEARCH...]" 
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            
+            <div className="iph-action-btns">
+              <button className="iph-btn dark">DIFFICULTY</button>
+              <button className="iph-btn dark">STATUS</button>
+              <button className="iph-btn bright">RUN DAILY</button>
+            </div>
+          </div>
+
+          {/* Module List */}
+          <div className="iph-modules">
+            {filteredData.length === 0 ? (
+              <div className="iph-empty">NO RECORDS FOUND</div>
+            ) : (
+              filteredData.map((cat, ci) => (
+                <div key={cat.topic || cat.category} className="iph-module">
+                  
+                  {/* Module Header */}
+                  <div className="iph-mod-header">
+                    <div className="iph-mod-title">
+                      {cat.topic || cat.category} <span className="iph-mod-id">MODULE_{String(ci + 1).padStart(2,'0')}</span>
+                    </div>
+                    <div className="iph-mod-cols">
+                      <span>DIFFICULTY</span>
+                      <span>FREQUENCY</span>
+                    </div>
+                  </div>
+
+                  {/* Rows */}
+                  <div className="iph-mod-rows">
+                    {cat.questions.map(item => {
+                      const done = isReviewed(item.id);
+                      // Use a deterministic pseudo random rate derived from the ID string for aesthetic stability
+                      const idCharCode = item.id.charCodeAt(0) + (item.id.charCodeAt(item.id.length-1) || 0);
+                      const rate = ((idCharCode % 70) + 25).toFixed(1);
+                      
+                      return (
+                        <div key={item.id} className={`iph-row ${done ? 'done' : ''}`} onClick={() => toggleReviewed(item.id)}>
+                          
+                          <div className="iph-col-check">
+                            <div className={`iph-checkbox ${done ? 'checked' : ''}`}>
+                              {done && '✓'}
+                            </div>
+                          </div>
+                          
+                          <div className="iph-col-main">
+                            <div className="iph-q-title">{item.q}</div>
+                            <div className="iph-q-tags">
+                              {item.tag && (
+                                <span className={`iph-tag ${item.tag === 'easy' ? 'green' : item.tag === 'medium' ? 'blue' : 'red'}`}>
+                                  {item.tag.toUpperCase()}
+                                </span>
+                              )}
+                              <span className="iph-tag-plain">TAG: {(cat.topic || cat.category || 'CORE').toUpperCase().replace(/\s+/g, '_')}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="iph-col-rate">
+                            <div className="iph-rate-label">SUCCESS RATE</div>
+                            <div className="iph-rate-val">{done ? '100.0' : rate}%</div>
+                          </div>
+                          
+                          <div className="iph-col-action">
+                            <button className="iph-play-btn" onClick={(e) => { e.stopPropagation(); toggleReviewed(item.id); }}>
+                              ▶
+                            </button>
+                          </div>
+                          
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              ))
+            )}
+            
+            {/* Lock placeholder */}
+            <div className="iph-lock-footer">
+              🔒 COMPLETE MORE TASKS TO UNLOCK ADVANCED MODULES
+            </div>
+            
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }

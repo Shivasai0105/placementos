@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApi } from '../hooks/useApi';
 import { showToast } from '../components/Toast';
 
-const DEFAULT_COMPANIES = ['Zoho', 'Freshworks', 'Persistent', 'TCS Digital', 'Infosys DSE'];
+const DEFAULT_COMPANIES = ['Google', 'Meta', 'Stripe', 'Amazon'];
 
 export default function Settings() {
   const { user, updateUser, logout } = useAuth();
@@ -14,34 +14,34 @@ export default function Settings() {
     cgpa: user?.cgpa || '',
     startDate: user?.startDate ? new Date(user.startDate).toISOString().split('T')[0] : '',
   });
-  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '' });
-  const [changingPw, setChangingPw] = useState(false);
+  
   const [companies, setCompanies] = useState(
     user?.targetCompanies?.length ? user.targetCompanies : DEFAULT_COMPANIES
   );
+  
   const [newCompany, setNewCompany] = useState('');
   const [saving, setSaving] = useState(false);
-  const [importing, setImporting] = useState(false);
+  
+  const [alerts, setAlerts] = useState({ study: true, deadlines: false });
 
-  const set = (field) => (e) => setProfile(p => ({ ...p, [field]: e.target.value }));
+  const setField = (field) => (e) => setProfile(p => ({ ...p, [field]: e.target.value }));
 
   const removeCompany = (name) => setCompanies(prev => prev.filter(c => c !== name));
 
-  const addCompany = () => {
-    const trimmed = newCompany.trim();
+  const addCompany = (e) => {
+    e.preventDefault();
+    const trimmed = newCompany.trim().toUpperCase();
     if (!trimmed) return;
-    if (companies.includes(trimmed)) { showToast('⚠️ Already Exists', `"${trimmed}" is already in your list.`); return; }
+    if (companies.map(c => c.toUpperCase()).includes(trimmed)) { 
+      showToast('⚠️ Already Exists', `"${trimmed}" is already in your list.`); 
+      return; 
+    }
     setCompanies(prev => [...prev, trimmed]);
     setNewCompany('');
   };
 
-  const handleCompanyKeyDown = (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); addCompany(); }
-  };
-
   const saveProfile = async (e) => {
-    e.preventDefault();
-    if (companies.length === 0) { showToast('⚠️ No Companies', 'Add at least one target company.'); return; }
+    if (e) e.preventDefault();
     setSaving(true);
     try {
       const data = await request('/api/auth/profile', {
@@ -54,7 +54,7 @@ export default function Settings() {
         }),
       });
       updateUser(data.user);
-      showToast('✅ Profile Updated', 'Your profile has been saved.');
+      showToast('✅ Configuration Updated', 'System parameters synchronized successfully.');
     } catch (err) {
       showToast('Error', err.message);
     } finally {
@@ -62,178 +62,141 @@ export default function Settings() {
     }
   };
 
-  const requestNotif = () => {
-    if (!('Notification' in window)) { showToast('⚠️ Not Supported', 'Browser does not support notifications.'); return; }
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') showToast('✅ Enabled', "You'll get a 6 PM reminder daily!");
-      else showToast('❌ Blocked', 'Allow notifications in browser settings.');
-    });
-  };
-
-  const importFromLocalStorage = async () => {
-    try {
-      const saved = localStorage.getItem('pos2');
-      if (!saved) { showToast('⚠️ No Data', 'No local data found (pos2 key).'); return; }
-      const localState = JSON.parse(saved);
-      setImporting(true);
-      await request('/api/progress/import', {
-        method: 'POST',
-        body: JSON.stringify({ tasks: localState.tasks || {}, problems: localState.problems || {} }),
-      });
-      showToast('✅ Imported!', 'Your local progress has been synced to the server.');
-    } catch (err) {
-      showToast('Error', err.message);
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const changePassword = async (e) => {
-    e.preventDefault();
-    if (pwForm.newPassword.length < 6) { showToast('⚠️ Too short', 'New password must be at least 6 characters.'); return; }
-    setChangingPw(true);
-    try {
-      await request('/api/auth/password', {
-        method: 'PATCH',
-        body: JSON.stringify(pwForm),
-      });
-      showToast('✅ Password Changed', 'Your password has been updated.');
-      setPwForm({ currentPassword: '', newPassword: '' });
-    } catch (err) {
-      showToast('Error', err.message);
-    } finally {
-      setChangingPw(false);
-    }
-  };
-
   return (
-    <div>
-      <div style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '20px' }}>⚙️ Settings</div>
-
-      {/* Profile */}
-      <div className="settings-section">
-        <div className="settings-section-title">👤 Profile</div>
-        <form onSubmit={saveProfile}>
-          <div className="form-group">
-            <label className="form-label">Full Name</label>
-            <input type="text" value={profile.name} onChange={set('name')} required />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">CGPA</label>
-              <input type="number" step="0.01" min="0" max="10" value={profile.cgpa} onChange={set('cgpa')} placeholder="8.67" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Start Date</label>
-              <input type="date" value={profile.startDate} onChange={set('startDate')} />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Email (read-only)</label>
-            <input type="email" value={user?.email || ''} readOnly style={{ opacity: 0.5 }} />
-          </div>
-
-          {/* Target Companies */}
-          <div className="form-group" style={{ marginTop: '4px' }}>
-            <label className="form-label">🏢 Target Companies</label>
-            <div className="company-chips">
-              {companies.map(c => (
-                <span key={c} className="company-chip">
-                  {c}
-                  <span className="chip-remove" onClick={() => removeCompany(c)} title={`Remove ${c}`}>✕</span>
-                </span>
-              ))}
-              {companies.length === 0 && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic' }}>No companies added yet</span>
-              )}
-            </div>
-            <div className="add-company-row">
-              <input
-                type="text"
-                placeholder="Add company (e.g. Google)"
-                value={newCompany}
-                onChange={e => setNewCompany(e.target.value)}
-                onKeyDown={handleCompanyKeyDown}
-                maxLength={40}
-              />
-              <button type="button" className="btn btn-green" onClick={addCompany} style={{ flexShrink: 0 }}>
-                + Add
-              </button>
-            </div>
-          </div>
-
-          <button type="submit" className="btn btn-green" disabled={saving} style={{ marginTop: '8px' }}>
-            {saving ? 'Saving...' : '✓ Save Profile'}
-          </button>
-        </form>
+    <div className="conf-sys">
+      
+      {/* ── HEADER ── */}
+      <div className="conf-header">
+        <div className="conf-h-label">SETTINGS & AUTHORITY</div>
+        <h1 className="conf-h-title">USER CONFIGURATION</h1>
+        <div className="conf-h-line"></div>
       </div>
 
-      {/* Notifications */}
-      <div className="settings-section">
-        <div className="settings-section-title">🔔 Notifications</div>
-        <p style={{ fontSize: '0.8rem', color: 'var(--muted2)', marginBottom: '16px', lineHeight: 1.5 }}>
-          Enable browser notifications to get a daily 6:00 PM reminder to start your prep session.
-          Notifications work as long as the browser is open.
-        </p>
-        <button className="btn" onClick={requestNotif}>
-          🔔 Enable 6 PM Notifications
-        </button>
-        <div style={{ marginTop: '10px', fontSize: '0.75rem', color: 'var(--muted)', fontFamily: "'JetBrains Mono',monospace" }}>
-          Current permission: {Notification?.permission || 'not supported'}
+      {/* ── SPLIT LAYOUT ── */}
+      <div className="conf-layout">
+        
+        {/* Left Column */}
+        <div className="conf-col-left">
+          
+          {/* Identity Section */}
+          <div className="conf-section">
+            <div className="conf-sec-title">
+              <span className="conf-sec-icon">👤</span> IDENTITY
+            </div>
+            
+            <div className="conf-row split">
+              <div className="conf-input-group">
+                <label>FULL IDENTITY</label>
+                <input type="text" value={profile.name} onChange={setField('name')} placeholder="Alex Rivera" />
+              </div>
+              <div className="conf-input-group">
+                <label>ACADEMIC CGPA</label>
+                <input type="number" step="0.01" value={profile.cgpa} onChange={setField('cgpa')} placeholder="8.92" />
+              </div>
+            </div>
+
+            <div className="conf-input-group">
+              <label>NETWORK ADDRESS (READ ONLY)</label>
+              <div className="conf-input-wrapper">
+                <input type="email" value={user?.email || 'alex.rivera@tech-inst.edu'} readOnly className="readonly" />
+                <span className="conf-input-icon">🔒</span>
+              </div>
+            </div>
+
+            <div className="conf-input-group">
+              <label>ROADMAP START DATE</label>
+              <div className="conf-input-wrapper">
+                <input type="date" value={profile.startDate} onChange={setField('startDate')} />
+                <span className="conf-input-icon">📅</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Target Companies Section */}
+          <div className="conf-section" style={{ marginTop: '40px' }}>
+            <div className="conf-sec-title">
+              <span className="conf-sec-icon">◎</span> TARGET COMPANIES
+            </div>
+            
+            <div className="conf-targets">
+              {companies.map(c => (
+                <div key={c} className="conf-target-pill">
+                  {c.toUpperCase()} 
+                  <span className="conf-target-x" onClick={() => removeCompany(c)}>✕</span>
+                </div>
+              ))}
+              
+              {/* Add form built inline */}
+              <form onSubmit={addCompany} className="conf-target-add-form">
+                <input 
+                  type="text" 
+                  value={newCompany} 
+                  onChange={e => setNewCompany(e.target.value)} 
+                  placeholder="+ ADD TARGET" 
+                  className="conf-target-input" 
+                />
+              </form>
+            </div>
+            
+            <p className="conf-helper-text">
+              Defining targets optimizes the Battle Plan algorithm for specific tech stacks.
+            </p>
+          </div>
+
+        </div>
+
+        {/* Right Column */}
+        <div className="conf-col-right">
+          
+          {/* Alert System Section */}
+          <div className="conf-section">
+            <div className="conf-sec-title">
+              <span className="conf-sec-icon">🔔</span> ALERT SYSTEM
+            </div>
+            
+            <div className="conf-alert-card" onClick={() => setAlerts(p => ({...p, study: !p.study}))}>
+              <div className="conf-alert-info">
+                <div className="conf-alert-name">Study Reminders</div>
+                <div className="conf-alert-desc">Daily ping for DSA and Aptitude</div>
+              </div>
+              <div className={`conf-toggle ${alerts.study ? 'on' : 'off'}`}></div>
+            </div>
+
+            <div className="conf-alert-card" onClick={() => setAlerts(p => ({...p, deadlines: !p.deadlines}))}>
+              <div className="conf-alert-info">
+                <div className="conf-alert-name">Deadline Alerts</div>
+                <div className="conf-alert-desc">Critical milestones & tests</div>
+              </div>
+              <div className={`conf-toggle ${alerts.deadlines ? 'on' : 'off'}`}></div>
+            </div>
+          </div>
+
+          {/* Authority Status Card */}
+          <div className="conf-auth-card">
+            <div className="conf-auth-header">
+              <div className="conf-auth-label">AUTHORITY STATUS</div>
+              <div className="conf-shield-icon">🛡️</div>
+            </div>
+            <div className="conf-auth-tier">TIER: ELITE</div>
+            <p className="conf-auth-desc">
+              Your placement readiness score is in the top 5% of all users in your region. System integrity is high.
+            </p>
+            <button className="conf-btn glow-green" onClick={saveProfile} disabled={saving}>
+              {saving ? 'SYNCHRONIZING...' : 'RE-AUTHENTICATE SYSTEM'}
+            </button>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="conf-danger-zone">
+            <div className="conf-danger-label">CRITICAL ACTIONS</div>
+            <button className="conf-btn-outline-red" onClick={logout}>
+              TERMINATE SESSION <span className="conf-logout-icon">⎋</span>
+            </button>
+          </div>
+
         </div>
       </div>
 
-      {/* Data Import */}
-      <div className="settings-section">
-        <div className="settings-section-title">📥 Import Progress from Old App</div>
-        <p style={{ fontSize: '0.8rem', color: 'var(--muted2)', marginBottom: '16px', lineHeight: 1.5 }}>
-          If you used the old HTML version of PlacementOS (<code>placement-tracker-final.html</code>),
-          your progress was saved in this browser's localStorage under the key <code>pos2</code>.
-          Click below to import it to your account.
-        </p>
-        <button className="btn" onClick={importFromLocalStorage} disabled={importing}>
-          {importing ? 'Importing...' : '📥 Import from localStorage'}
-        </button>
-      </div>
-
-      {/* Change Password */}
-      <div className="settings-section">
-        <div className="settings-section-title">🔑 Change Password</div>
-        <form onSubmit={changePassword}>
-          <div className="form-group">
-            <label className="form-label">Current Password</label>
-            <input
-              type="password"
-              value={pwForm.currentPassword}
-              onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))}
-              required
-              placeholder="Your current password"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">New Password</label>
-            <input
-              type="password"
-              value={pwForm.newPassword}
-              onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))}
-              required
-              minLength={6}
-              placeholder="At least 6 characters"
-            />
-          </div>
-          <button type="submit" className="btn btn-green" disabled={changingPw}>
-            {changingPw ? 'Updating...' : '🔑 Update Password'}
-          </button>
-        </form>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="settings-section" style={{ borderColor: 'rgba(255,77,106,0.2)' }}>
-        <div className="settings-section-title" style={{ color: 'var(--red)' }}>⚠️ Account</div>
-        <button className="btn btn-red" onClick={logout}>
-          Logout from this device
-        </button>
-      </div>
     </div>
   );
 }

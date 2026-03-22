@@ -1,45 +1,32 @@
 import { NavLink } from 'react-router-dom';
 
+/* Render a subset of critical routes for the bottom mobile bar to avoid clutter. 
+   All routes are still available via the hamburger menu in MobileSidebar. */
 export default function MobileNav() {
   return (
     <div className="mobile-nav">
-      <div className="mobile-nav-items">
-        <NavLink to="/" end className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">📊</span>
-          <span>Home</span>
+      <div className="mobile-nav-items" style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', height: '100%', padding: '0 8px' }}>
+        
+        <NavLink to="/" end className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`} style={{ flexDirection: 'column', gap: '4px', fontSize: '0.6rem' }}>
+          <span>DASH</span>
         </NavLink>
-        <NavLink to="/plan" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">📅</span>
-          <span>Plan</span>
+        
+        <NavLink to="/plan" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`} style={{ flexDirection: 'column', gap: '4px', fontSize: '0.6rem' }}>
+          <span>PLAN</span>
         </NavLink>
-        <NavLink to="/problems" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">💻</span>
-          <span>Problems</span>
+
+        <NavLink to="/applications" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`} style={{ flexDirection: 'column', gap: '4px', fontSize: '0.6rem' }}>
+          <span>TRACK</span>
         </NavLink>
-        <NavLink to="/company" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">🏢</span>
-          <span>Companies</span>
+
+        <NavLink to="/problems" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`} style={{ flexDirection: 'column', gap: '4px', fontSize: '0.6rem' }}>
+          <span>PROB</span>
         </NavLink>
-        <NavLink to="/applications" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">📋</span>
-          <span>Tracker</span>
+        
+        <NavLink to="/interview-prep" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`} style={{ flexDirection: 'column', gap: '4px', fontSize: '0.6rem' }}>
+          <span>INTV</span>
         </NavLink>
-        <NavLink to="/analytics" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">📈</span>
-          <span>Analytics</span>
-        </NavLink>
-        <NavLink to="/comm-prep" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">🎤</span>
-          <span>Comm</span>
-        </NavLink>
-        <NavLink to="/interview-prep" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">💡</span>
-          <span>Interview</span>
-        </NavLink>
-        <NavLink to="/settings" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">⚙️</span>
-          <span>Settings</span>
-        </NavLink>
+
       </div>
     </div>
   );
