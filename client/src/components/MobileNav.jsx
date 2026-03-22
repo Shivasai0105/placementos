@@ -20,6 +20,14 @@ export default function MobileNav() {
           <span className="mobile-nav-icon">🏢</span>
           <span>Companies</span>
         </NavLink>
+        <NavLink to="/applications" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
+          <span className="mobile-nav-icon">📋</span>
+          <span>Tracker</span>
+        </NavLink>
+        <NavLink to="/analytics" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
+          <span className="mobile-nav-icon">📈</span>
+          <span>Analytics</span>
+        </NavLink>
         <NavLink to="/comm-prep" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
           <span className="mobile-nav-icon">🎤</span>
           <span>Comm</span>
@@ -27,6 +35,10 @@ export default function MobileNav() {
         <NavLink to="/interview-prep" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
           <span className="mobile-nav-icon">💡</span>
           <span>Interview</span>
+        </NavLink>
+        <NavLink to="/settings" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
+          <span className="mobile-nav-icon">⚙️</span>
+          <span>Settings</span>
         </NavLink>
       </div>
     </div>

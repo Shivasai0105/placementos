@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 
-export default function Navbar() {
+export default function Navbar({ onMenuOpen }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -14,6 +14,11 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
+      {/* Hamburger — only visible on mobile */}
+      <button className="nav-hamburger" onClick={onMenuOpen} aria-label="Open menu">
+        ☰
+      </button>
+
       <NavLink to="/" className="nav-logo">PlacementOS</NavLink>
 
       <div className="nav-links">

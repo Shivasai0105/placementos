@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
 import { useAuth } from './context/AuthContext';
 import { useTheme } from './hooks/useTheme';
 import Login from './pages/Login';
@@ -17,6 +18,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Navbar from './components/Navbar';
 import MobileNav from './components/MobileNav';
+import MobileSidebar from './components/MobileSidebar';
 import Toast from './components/Toast';
 
 const ProtectedRoute = ({ children }) => {
@@ -35,14 +37,18 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const AppLayout = ({ children }) => (
-  <div className="app-wrapper">
-    <Navbar />
-    <div className="page-content">{children}</div>
-    <MobileNav />
-    <Toast />
-  </div>
-);
+const AppLayout = ({ children }) => {
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  return (
+    <div className="app-wrapper">
+      <Navbar onMenuOpen={() => setSidebarOpen(true)} />
+      <MobileSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="page-content">{children}</div>
+      <MobileNav />
+      <Toast />
+    </div>
+  );
+};
 
 export default function App() {
   useTheme(); // initialise theme (reads localStorage, applies data-theme to <html>)
