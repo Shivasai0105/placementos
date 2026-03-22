@@ -20,9 +20,13 @@ export default function MobileNav() {
           <span className="mobile-nav-icon">🏢</span>
           <span>Companies</span>
         </NavLink>
-        <NavLink to="/applications" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
-          <span className="mobile-nav-icon">📋</span>
-          <span>Tracker</span>
+        <NavLink to="/comm-prep" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
+          <span className="mobile-nav-icon">🎤</span>
+          <span>Comm</span>
+        </NavLink>
+        <NavLink to="/interview-prep" className={({ isActive }) => `mobile-nav-item${isActive ? ' active' : ''}`}>
+          <span className="mobile-nav-icon">💡</span>
+          <span>Interview</span>
         </NavLink>
       </div>
     </div>

@@ -18,6 +18,18 @@ const progressSchema = new mongoose.Schema({
     type: Map,
     of: Boolean,
     default: {}
+  },
+  // commPrepDays stored as: { "1": true, "5": true, ... } (day number as key)
+  commPrepDays: {
+    type: Map,
+    of: Boolean,
+    default: {}
+  },
+  // interviewReviewed stored as: { "dsa1": true, "m3": true, ... }
+  interviewReviewed: {
+    type: Map,
+    of: Boolean,
+    default: {}
   }
 }, {
   timestamps: true

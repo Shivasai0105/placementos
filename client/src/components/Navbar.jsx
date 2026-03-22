@@ -35,6 +35,12 @@ export default function Navbar() {
         <NavLink to="/analytics" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
           📈 Analytics
         </NavLink>
+        <NavLink to="/comm-prep" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+          🎤 Comm Prep
+        </NavLink>
+        <NavLink to="/interview-prep" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+          💡 Interview
+        </NavLink>
         <NavLink to="/settings" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
           ⚙️ Settings
         </NavLink>

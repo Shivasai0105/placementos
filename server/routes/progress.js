@@ -40,8 +40,10 @@ router.get('/', async (req, res) => {
 
     const tasks = Object.fromEntries(progress.tasks || {});
     const problems = Object.fromEntries(progress.problems || {});
+    const commPrepDays = Object.fromEntries(progress.commPrepDays || {});
+    const interviewReviewed = Object.fromEntries(progress.interviewReviewed || {});
 
-    res.json({ tasks, problems });
+    res.json({ tasks, problems, commPrepDays, interviewReviewed });
   } catch (err) {
     console.error('Get progress error:', err);
     res.status(500).json({ message: 'Server error.' });
@@ -88,6 +90,47 @@ router.post('/problem', async (req, res) => {
     res.json({ key, value: !current });
   } catch (err) {
     console.error('Toggle problem error:', err);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// POST /api/progress/comm-day — toggle a communication prep day
+router.post('/comm-day', async (req, res) => {
+  try {
+    const { day } = req.body;
+    if (day === undefined) return res.status(400).json({ message: 'day is required.' });
+
+    const key = String(day);
+    let progress = await Progress.findOne({ userId: req.userId });
+    if (!progress) progress = await Progress.create({ userId: req.userId });
+
+    const current = progress.commPrepDays.get(key) || false;
+    progress.commPrepDays.set(key, !current);
+    await progress.save();
+
+    res.json({ key, value: !current });
+  } catch (err) {
+    console.error('Comm day toggle error:', err);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// POST /api/progress/interview-review — toggle an interview question reviewed state
+router.post('/interview-review', async (req, res) => {
+  try {
+    const { questionId } = req.body;
+    if (!questionId) return res.status(400).json({ message: 'questionId is required.' });
+
+    let progress = await Progress.findOne({ userId: req.userId });
+    if (!progress) progress = await Progress.create({ userId: req.userId });
+
+    const current = progress.interviewReviewed.get(questionId) || false;
+    progress.interviewReviewed.set(questionId, !current);
+    await progress.save();
+
+    res.json({ key: questionId, value: !current });
+  } catch (err) {
+    console.error('Interview review toggle error:', err);
     res.status(500).json({ message: 'Server error.' });
   }
 });
