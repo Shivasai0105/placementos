@@ -4,25 +4,34 @@ import { showToast } from '../components/Toast';
 import { PLAN } from '../data/plan';
 import { useAuth } from '../context/AuthContext';
 
+const TAG_COLORS = {
+  dsa:      { bg: 'rgba(0,232,122,0.12)',   color: 'var(--green)'  },
+  oop:      { bg: 'rgba(155,109,255,0.12)', color: 'var(--purple)' },
+  mern:     { bg: 'rgba(59,158,255,0.12)',  color: 'var(--blue)'   },
+  aptitude: { bg: 'rgba(0,212,255,0.12)',   color: 'var(--cyan)'   },
+  theory:   { bg: 'rgba(255,184,0,0.12)',   color: 'var(--amber)'  },
+  project:  { bg: 'rgba(255,77,106,0.12)',  color: 'var(--red)'    },
+  mock:     { bg: 'rgba(255,184,0,0.15)',   color: 'var(--amber)'  },
+  system:   { bg: 'rgba(155,109,255,0.15)', color: 'var(--purple)' },
+};
+
 export default function Plan() {
   const { user } = useAuth();
   const { request } = useApi();
   const [progress, setProgress] = useState({ tasks: {}, problems: {} });
-  const [activeWeek, setActiveWeek] = useState(0);
-  const [openDays, setOpenDays] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // Compute current week/day
+  /* ── compute current week ── */
   const getDayOffset = () => {
     const s = new Date(user?.startDate || Date.now());
     s.setHours(0, 0, 0, 0);
     const t = new Date(); t.setHours(0, 0, 0, 0);
     return Math.max(0, Math.floor((t - s) / 86400000));
   };
-  const offset = getDayOffset();
-  const cw = Math.min(Math.floor(offset / 7), PLAN.length - 1);
-  const cd = Math.min(offset % 7, PLAN[cw].days.length - 1);
+  const offset   = getDayOffset();
+  const currentWeek = Math.min(Math.floor(offset / 7), PLAN.length - 1);
 
+  /* ── data fetching ── */
   const fetchProgress = useCallback(async () => {
     try {
       const data = await request('/api/progress');
@@ -34,15 +43,7 @@ export default function Plan() {
     }
   }, []);
 
-  useEffect(() => {
-    setActiveWeek(cw);
-    setOpenDays({ [`${cw}-${cd}`]: true }); // auto-open today
-    fetchProgress();
-  }, []);
-
-  const toggleDay = (wi, di) => {
-    setOpenDays(prev => ({ ...prev, [`${wi}-${di}`]: !prev[`${wi}-${di}`] }));
-  };
+  useEffect(() => { fetchProgress(); }, []);
 
   const toggleTask = async (week, day, taskIndex) => {
     try {
@@ -56,90 +57,152 @@ export default function Plan() {
     }
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>Loading plan...</div>;
+  /* ── global stats ── */
+  const totalTasks = PLAN.reduce((s, w) => s + w.days.reduce((ss, d) => ss + d.tasks.length, 0), 0);
+  const doneTasks  = Object.keys(progress.tasks || {}).filter(k => progress.tasks[k]).length;
 
-  const w = PLAN[activeWeek];
-  const weekTasks = w.days.reduce((sum, d) => sum + d.tasks.length, 0);
-  const weekDone = w.days.reduce((sum, d, di) =>
-    sum + d.tasks.filter((_, ti) => progress.tasks[`w${activeWeek}d${di}t${ti}`]).length, 0);
-
-  return (
-    <div>
-      <div className="section-label">WEEKLY BREAKDOWN</div>
-
-      {/* Week Nav */}
-      <div className="week-nav">
-        {PLAN.map((_, wi) => (
-          <button
-            key={wi}
-            className={`wbtn${wi === activeWeek ? ' active' : ''}`}
-            onClick={() => setActiveWeek(wi)}
-            title={PLAN[wi].theme}
-          >
-            W{wi + 1}
-          </button>
-        ))}
-      </div>
-
-      {/* Week Header */}
-      <div className="week-hdr">
-        <div>
-          <div className="week-hdr-title">Week {activeWeek + 1} — {w.theme}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--muted2)', marginTop: '4px' }}>🎯 {w.focus}</div>
-        </div>
-        <div className="week-hdr-right">
-          <span className="week-badge wb-green">{w.days.length} DAYS</span>
-          <span className="week-badge wb-blue">{weekDone}/{weekTasks} TASKS</span>
-        </div>
-      </div>
-
-      {/* Days */}
-      {w.days.map((day, di) => {
-        const isToday = activeWeek === cw && di === cd;
-        const total = day.tasks.length;
-        const done = day.tasks.filter((_, ti) => progress.tasks[`w${activeWeek}d${di}t${ti}`]).length;
-        const pct = Math.round((done / total) * 100);
-        const isOpen = openDays[`${activeWeek}-${di}`];
-
-        return (
-          <div key={di} className={`day-card${isToday ? ' today-hl' : ''}`}>
-            <div className="day-hdr" onClick={() => toggleDay(activeWeek, di)}>
-              <div className="dhl">
-                <div className="day-num">D{activeWeek * 7 + di + 1}</div>
-                <div>
-                  <span className="day-name">{day.name}</span>
-                  {isToday && <span className="day-today-badge">TODAY</span>}
-                </div>
-              </div>
-              <div className="dhr">
-                <div className="mini-prog"><div className="mini-prog-fill" style={{ width: `${pct}%` }} /></div>
-                <div className="day-cnt">{done}/{total}</div>
-                <div className="chev" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }}>▼</div>
-              </div>
-            </div>
-
-            <div className={`day-tasks-panel${isOpen ? ' open' : ''}`}>
-              {day.tasks.map((task, ti) => {
-                const key = `w${activeWeek}d${di}t${ti}`;
-                const isDone = !!progress.tasks[key];
-                return (
-                  <div key={ti} className={`task-item${isDone ? ' done' : ''}`} onClick={() => toggleTask(activeWeek, di, ti)}>
-                    <div className="task-check"><span className="task-tick">✓</span></div>
-                    <div className="task-body">
-                      <div className="task-name">
-                        <span className={`tag tag-${task.tag}`}>{task.tag.toUpperCase()}</span>{' '}
-                        {task.name}
-                      </div>
-                      <div className="task-detail">{task.detail} · {task.time}</div>
-                      {task.lc && <div className="task-lc">↗ {task.lc}</div>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
+      Loading plan…
     </div>
   );
+
+  return (
+    <div className="plan-page">
+
+      {/* ── HEADER ── */}
+      <div className="plan-header">
+        <div className="plan-header-label">BATTLE PLAN PHASE 1</div>
+        <h1 className="plan-header-title">8-Week<br />Roadmap</h1>
+        <div className="plan-stats-row">
+          <div className="plan-stat-box">
+            <div className="plan-stat-label">PROGRESS</div>
+            <div className="plan-stat-value">
+              <span className="plan-stat-num">{doneTasks}</span>
+              <span className="plan-stat-total"> / {totalTasks} TASKS</span>
+            </div>
+          </div>
+          <div className="plan-stat-box">
+            <div className="plan-stat-label">CURRENT STATUS</div>
+            <div className="plan-week-badge">WEEK {currentWeek + 1}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── TIMELINE ── */}
+      <div className="plan-timeline">
+        {PLAN.map((week, wi) => {
+          const isActive = wi === currentWeek;
+          const isPast   = wi < currentWeek;
+          const isLocked = wi > currentWeek;
+
+          /* week-level progress */
+          const weekTotal = week.days.reduce((s, d) => s + d.tasks.length, 0);
+          const weekDone  = week.days.reduce((s, d, di) =>
+            s + d.tasks.filter((_, ti) => progress.tasks[`w${wi}d${di}t${ti}`]).length, 0);
+
+          return (
+            <div key={wi} className={`plan-week-block${isActive ? ' active' : ''}${isLocked ? ' locked' : ''}`}>
+
+              {/* ── Week row ── */}
+              <div className="plan-week-row">
+                {/* dot + line */}
+                <div className="plan-dot-col">
+                  <div className={`plan-dot${isActive ? ' active' : isPast ? ' past' : ''}`}>
+                    {isLocked ? '🔒' : isActive ? '●' : '✓'}
+                  </div>
+                  {wi < PLAN.length - 1 && <div className="plan-line" />}
+                </div>
+
+                {/* text */}
+                <div className="plan-week-info">
+                  <h2 className={`plan-week-title${isLocked ? ' muted' : ''}`}>
+                    Week {wi + 1}: {titleCase(week.theme)}
+                  </h2>
+                  {isActive && <div className="plan-active-badge">ACTIVE CYCLE</div>}
+                  {isPast   && <div className="plan-done-badge">{weekDone}/{weekTotal} DONE</div>}
+                  {isLocked && <div className="plan-locked-badge">LOCKED</div>}
+                </div>
+              </div>
+
+              {/* ── Task cards (only active / past weeks) ── */}
+              {!isLocked && (
+                <div className="plan-tasks-area">
+                  {week.days.map((day, di) =>
+                    day.tasks.map((task, ti) => {
+                      const key    = `w${wi}d${di}t${ti}`;
+                      const isDone = !!progress.tasks[key];
+                      const colors = TAG_COLORS[task.tag] || TAG_COLORS.dsa;
+                      return (
+                        <div
+                          key={key}
+                          className={`plan-task-card${isDone ? ' done' : ''}`}
+                          onClick={() => toggleTask(wi, di, ti)}
+                        >
+                          {/* checkbox */}
+                          <div className={`plan-task-check${isDone ? ' checked' : ''}`}>
+                            {isDone && <span>✓</span>}
+                          </div>
+
+                          {/* content */}
+                          <div className="plan-task-content">
+                            <div
+                              className="plan-task-tag"
+                              style={{ background: colors.bg, color: colors.color }}
+                            >
+                              {task.tag.toUpperCase()}
+                            </div>
+                            <div className="plan-task-name">{task.name}</div>
+                            <div className="plan-task-detail">{task.detail}</div>
+                            <div className="plan-task-time">
+                              <span className="plan-task-time-icon">🕐</span>
+                              {task.time}
+                              {task.lc && <span className="plan-task-lc"> · {task.lc}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+
+              {/* locked preview — show first task of the week */}
+              {isLocked && week.days[0]?.tasks[0] && (
+                <div className="plan-tasks-area locked-preview">
+                  {week.days[0].tasks.slice(0, 2).map((task, ti) => {
+                    const colors = TAG_COLORS[task.tag] || TAG_COLORS.dsa;
+                    return (
+                      <div key={ti} className="plan-task-card locked">
+                        <div className="plan-task-lock">🔒</div>
+                        <div className="plan-task-content">
+                          <div
+                            className="plan-task-tag"
+                            style={{ background: colors.bg, color: colors.color, opacity: 0.5 }}
+                          >
+                            {task.tag.toUpperCase()}
+                          </div>
+                          <div className="plan-task-name" style={{ opacity: 0.4 }}>{task.name}</div>
+                          <div className="plan-task-time" style={{ opacity: 0.3 }}>
+                            <span className="plan-task-time-icon">🕐</span>
+                            {task.time}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* helper */
+function titleCase(str) {
+  return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
