@@ -126,3 +126,34 @@ exports.sendPasswordResetEmail = async (to, name, token) => {
     `),
   });
 };
+
+// ─── Daily Tasks email ────────────────────────────────────────────────────────
+exports.sendDailyTasksEmail = async (to, name, dayName, tasksConfig) => {
+  const taskHtml = tasksConfig.map(t => `
+    <div style="background:#22222d;border-radius:8px;padding:16px;margin-bottom:12px;border-left:4px solid #00e87a;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:10px;font-weight:700;color:#000;background:#00e87a;padding:2px 8px;border-radius:4px;text-transform:uppercase;">${t.tag}</span>
+        <span style="font-size:12px;color:#aaa;">${t.time}</span>
+      </div>
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;">${t.name}</div>
+      <div style="font-size:13px;color:#bbb;">${t.detail}</div>
+      ${t.lc ? `<div style="font-size:12px;color:#00e87a;margin-top:8px;font-weight:600;">🔗 ${t.lc}</div>` : ''}
+    </div>
+  `).join('');
+
+  await postToBrevo({
+    sender: { name: 'PlacementOS', email: SENDER_EMAIL },
+    to: [{ email: to, name }],
+    subject: `🎯 Your Daily Tasks: ${dayName}`,
+    htmlContent: baseTemplate(`
+      <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">${dayName} Mission 🚀</div>
+      <div style="font-size:15px;color:#999;line-height:1.6;margin-bottom:24px;">
+        Hi <strong style="color:#fff;">${name}</strong>, here are your placement prep tasks for today. Stay consistent!
+      </div>
+      ${taskHtml}
+      <div style="text-align:center;margin-top:24px;">
+        <a href="${APP_URL}/dashboard" style="${btnStyle}">→ GO TO DASHBOARD</a>
+      </div>
+    `),
+  });
+};

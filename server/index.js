@@ -9,6 +9,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const progressRoutes = require('./routes/progress');
 const applicationRoutes = require('./routes/applications');
+const startDailyTaskJob = require('./services/cronJobs');
 
 const app = express();
 
@@ -83,6 +84,7 @@ mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ MongoDB connected');
+    startDailyTaskJob();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌐 Allowed origins: ${allowedOrigins.join(', ')}`);
