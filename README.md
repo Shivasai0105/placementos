@@ -6,7 +6,7 @@ A full-stack MERN placement prep tracker for your 8-week 10 LPA battle plan.
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React + Vite |
+| Frontend | React + Vite | 
 | Backend | Node.js + Express |
 | Database | MongoDB (local dev / Atlas for prod) |
 | Auth | JWT (bcrypt passwords) |
