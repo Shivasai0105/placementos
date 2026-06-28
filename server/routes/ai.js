@@ -519,5 +519,190 @@ Analyze this profile and generate the prediction JSON.`;
   }
 });
 
+// GET /api/ai/analytics-audit — Generate a personal performance audit report from progress metrics
+router.get('/analytics-audit', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    let progress = await Progress.findOne({ userId: req.userId });
+    if (!progress) {
+      progress = await Progress.create({ userId: req.userId });
+    }
+
+    const applications = await Application.find({ userId: req.userId });
+
+    // Compute basic completion stats
+    const tasks = Object.fromEntries(progress.tasks || {});
+    const problems = Object.fromEntries(progress.problems || {});
+    const commPrepDays = Object.fromEntries(progress.commPrepDays || {});
+    const interviewReviewed = Object.fromEntries(progress.interviewReviewed || {});
+
+    const tasksDone = Object.values(tasks).filter(Boolean).length;
+    const probsDone = Object.values(problems).filter(Boolean).length;
+    const commDaysDone = Object.values(commPrepDays).filter(Boolean).length;
+    const interviewsDone = Object.values(interviewReviewed).filter(Boolean).length;
+
+    // Categorized tasks completed
+    let tagStats = { dsa: 0, aptitude: 0, dbms: 0, dev: 0, comm: 0, other: 0 };
+    Object.entries(tasks).forEach(([key, val]) => {
+      if (!val) return;
+      const match = key.match(/^w(\d+)d(\d+)t(\d+)$/);
+      if (!match) return;
+      const [, wi, di, ti] = match.map(Number);
+      const tag = PLAN[wi]?.days[di]?.tasks[ti]?.tag;
+      if (tag === 'dsa') tagStats.dsa++;
+      else if (tag === 'aptitude') tagStats.aptitude++;
+      else if (tag === 'dbms' || tag === 'theory') tagStats.dbms++;
+      else if (tag === 'dev' || tag === 'mern' || tag === 'project') tagStats.dev++;
+      else if (tag === 'comm') tagStats.comm++;
+      else tagStats.other++;
+    });
+
+    // Active applications summary
+    const appStages = { saved: 0, applied: 0, oa: 0, interview: 0, offer: 0, rejected: 0 };
+    const appliedCompanies = [];
+    applications.forEach(app => {
+      if (appStages[app.status] !== undefined) {
+        appStages[app.status]++;
+      }
+      appliedCompanies.push(`${app.company} (${app.role} - status: ${app.status})`);
+    });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    // Dynamic simulated baseline generator based on statistics
+    const totalTasks = PLAN.reduce((sum, w) => sum + w.days.reduce((s, d) => s + d.tasks.length, 0), 0);
+    const completionRate = totalTasks > 0 ? (tasksDone / totalTasks) : 0;
+
+    let simulatedReadinessTier = "Low";
+    let simulatedReadinessExplanation = "Your overall roadmap progress is in the early stages. Prioritize checking off daily tasks to accelerate consistency.";
+    if (completionRate > 0.6 || probsDone > 100) {
+      simulatedReadinessTier = "High";
+      simulatedReadinessExplanation = "Excellent progress telemetry. Your high solve metrics and consistent roadmap check-offs show great readiness for core interviews.";
+    } else if (completionRate > 0.25 || probsDone > 40) {
+      simulatedReadinessTier = "Medium";
+      simulatedReadinessExplanation = "Moderate completion metrics. You have built a good foundation but require higher coverage in core CS fundamentals and advanced graphs.";
+    }
+
+    const simulatedData = {
+      pipelineAnalysis: applications.length === 0 
+        ? "No applications tracked. Establish your Kanban job board tracking immediately to begin collecting recruitment funnel analytics." 
+        : `Funnel review: You have ${applications.length} total applications, with ${appStages.oa} in OA and ${appStages.interview} in Interview stages. Keep pushing applications to increase conversion rates.`,
+      topicDeficit: probsDone < 30 
+        ? "Deficit flagged: DSA problem bank is severely under-utilized. High-paying product roles require strong DSA proficiency. Target Arrays, Trees, and Strings."
+        : "Good DSA balance. Your current bottleneck lies in CS Core theory tasks (Operating Systems, SQL Normalization). Schedule dedicated hours to clear theory tasks.",
+      readinessTier: simulatedReadinessTier,
+      readinessExplanation: simulatedReadinessExplanation,
+      analystGoals: [
+        { goal: "Solve 15 more questions in DSA Problem Bank", metricTarget: "Clear DSA deficit" },
+        { goal: "Complete 5 DBMS/OS checklist tasks in Week 4 Roadmap", metricTarget: "Cover CS Core gaps" },
+        { goal: "Move at least 2 job applications into the Applied stage", metricTarget: "Increase funnel volume" }
+      ],
+      isFallback: true
+    };
+
+    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+      return res.json(simulatedData);
+    }
+
+    const systemPrompt = `You are an expert HR Data Analyst and Technical Placement Auditor.
+Analyze the user's placement preparation telemetry and produce a quantitative performance audit report.
+You must output a single valid JSON object. Do not wrap in markdown code blocks. Do not add any introductory or concluding text.
+
+Required JSON Schema:
+{
+  "pipelineAnalysis": "One paragraph analyzing their job applications funnel, conversion ratios, and drop-off risks.",
+  "topicDeficit": "One paragraph diagnosing their topic deficits in DSA and CS Core subjects.",
+  "readinessTier": "Low" | "Medium" | "High",
+  "readinessExplanation": "Detailed explanation justifying the readiness tier classification based on completion rates, CGPA, and coding count.",
+  "analystGoals": [
+    {
+      "goal": "Specific task, e.g. Solve 10 Leetcode recursion questions",
+      "metricTarget": "Uplift target, e.g. Boost recursion coverage by 20%"
+    }
+  ]
+}
+
+Rules:
+1. Ensure 'readinessTier' matches the stats: Low if tasks+problems solved is low, Medium if moderate, High if they have high stats.
+2. The response must be valid JSON and contain all fields.`;
+
+    const userPrompt = `User Profile:
+- CGPA: ${user.cgpa || 'Not set'}
+- Target Companies: ${user.targetCompanies.join(', ')}
+
+Preparation Progress:
+- Total Tasks Completed: ${tasksDone}
+- DSA Problems Solved: ${probsDone}
+- Communication Days Done: ${commDaysDone}
+- Mock Interviews Reviewed: ${interviewsDone}
+
+Task Completion Tag Counts:
+- DSA: ${tagStats.dsa}
+- Aptitude: ${tagStats.aptitude}
+- DBMS & Theory: ${tagStats.dbms}
+- Dev & Project: ${tagStats.dev}
+- Communication: ${tagStats.comm}
+
+Active Applications Status:
+- Total Applications: ${applications.length}
+- Saved: ${appStages.saved} | Applied: ${appStages.applied} | OA: ${appStages.oa} | Interview: ${appStages.interview} | Offer: ${appStages.offer} | Rejected: ${appStages.rejected}
+- Companies Applied: ${appliedCompanies.join(', ') || 'None'}
+
+Analyze this profile and generate the audit JSON report.`;
+
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro-latest'];
+    let lastError = null;
+    let candidateText = null;
+
+    for (const model of modelsToTry) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: systemPrompt }, { text: userPrompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          candidateText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (candidateText) break;
+        } else {
+          const errBody = await response.json().catch(() => ({}));
+          lastError = errBody.error?.message || `Status ${response.status}`;
+          console.warn(`Model ${model} audit error:`, lastError);
+        }
+      } catch (fetchErr) {
+        lastError = fetchErr.message;
+        console.warn(`Model ${model} audit failed:`, lastError);
+      }
+    }
+
+    if (!candidateText) {
+      console.warn('All Gemini models failed for audit. Returning simulated data fallback.');
+      return res.json(simulatedData);
+    }
+
+    try {
+      const audit = extractJson(candidateText);
+      res.json({ ...audit, isFallback: false });
+    } catch (parseError) {
+      console.error('Failed to parse Gemini audit JSON:', candidateText);
+      res.status(502).json({ message: 'Failed to parse AI audit result.', error: parseError.message });
+    }
+
+  } catch (err) {
+    console.error('AI Audit Error:', err);
+    res.status(500).json({ message: 'Server error generating analytics audit.' });
+  }
+});
+
 module.exports = router;
 

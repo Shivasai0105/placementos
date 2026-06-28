@@ -8,11 +8,44 @@ export default function Analytics() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const AUDIT_CACHE_KEY = 'ai_telemetry_audit_cache';
+  const AUDIT_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
+  const [audit, setAudit] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const fetchAudit = async (force = false) => {
+    setAuditLoading(true);
+    try {
+      if (!force) {
+        const cached = sessionStorage.getItem(AUDIT_CACHE_KEY);
+        if (cached) {
+          const { parsed, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < AUDIT_CACHE_TTL) {
+            setAudit(parsed);
+            return;
+          }
+        }
+      }
+      const data = await request('/api/ai/analytics-audit');
+      setAudit(data);
+      sessionStorage.setItem(AUDIT_CACHE_KEY, JSON.stringify({
+        parsed: data,
+        timestamp: Date.now()
+      }));
+    } catch (err) {
+      showToast('Audit Error', err.message);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
         const data = await request('/api/progress/stats');
         setStats(data);
+        fetchAudit();
       } catch (err) {
         showToast('Error', err.message);
       } finally {
@@ -66,6 +99,78 @@ export default function Analytics() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 🤖 AI TELEMETRY AUDIT CARD */}
+      <div className="analytics-card full" style={{ marginBottom: '16px', marginTop: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div className="analytics-card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>🤖</span> AI TELEMETRY AUDIT
+            {audit?.isFallback && <span className="ana-fallback-badge">DEMO MODE</span>}
+          </div>
+          <button 
+            className="ana-audit-btn" 
+            onClick={() => fetchAudit(true)}
+            disabled={auditLoading}
+          >
+            {auditLoading ? 'ANALYZING...' : '⟳ RE-AUDIT TELEMETRY'}
+          </button>
+        </div>
+
+        {auditLoading ? (
+          <div className="ana-audit-loading">
+            <div className="ana-pulse-ring" />
+            <span style={{ fontSize: '0.8rem', fontFamily: 'monospace', color: 'var(--muted)' }}>
+              AGGREGATING TELEMETRY & RUNNING COHORT AUDIT...
+            </span>
+          </div>
+        ) : audit ? (
+          <div className="ana-audit-content">
+            {/* Header: Tier + Explanation */}
+            <div className="ana-audit-header">
+              <div className={`ana-tier-badge ${audit.readinessTier?.toLowerCase()}`}>
+                {audit.readinessTier?.toUpperCase()} READINESS
+              </div>
+              <div className="ana-tier-exp">
+                {audit.readinessExplanation}
+              </div>
+            </div>
+
+            {/* Diagnostics grid */}
+            <div className="ana-audit-grid" style={{ marginTop: '16px' }}>
+              <div className="ana-audit-block">
+                <div className="ana-block-label">// FUNNEL & PIPELINE ANALYSIS</div>
+                <p className="ana-block-text">{audit.pipelineAnalysis}</p>
+              </div>
+              <div className="ana-audit-block">
+                <div className="ana-block-label">// TOPIC DEFICIT DIAGNOSIS</div>
+                <p className="ana-block-text">{audit.topicDeficit}</p>
+              </div>
+            </div>
+
+            {/* Goals list */}
+            {audit.analystGoals?.length > 0 && (
+              <div className="ana-goals-section" style={{ marginTop: '16px' }}>
+                <div className="ana-block-label" style={{ marginBottom: '10px' }}>// RECOMMENDED METRIC UPLIFT GOALS</div>
+                <div className="ana-goals-list">
+                  {audit.analystGoals.map((g, idx) => (
+                    <div key={idx} className="ana-goal-row">
+                      <div className="ana-goal-checkbox">☐</div>
+                      <div className="ana-goal-info">
+                        <div className="ana-goal-text">{g.goal}</div>
+                        <div className="ana-goal-metric">➔ Target: {g.metricTarget}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--muted)', fontSize: '0.8rem' }}>
+            No telemetry audit cached. Click "RE-AUDIT TELEMETRY" to run.
+          </div>
+        )}
       </div>
 
       {/* Weekly Bar Chart */}
