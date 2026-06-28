@@ -157,3 +157,48 @@ exports.sendDailyTasksEmail = async (to, name, dayName, tasksConfig) => {
     `),
   });
 };
+
+// ─── Streak warning email (7:00 PM Check-in if tasks not done) ──────────────────
+exports.sendStreakWarningEmail = async (to, name, dayName, streak) => {
+  const warningBtnStyle = btnStyle.replace('#00e87a', '#ef4444').replace('color:#000', 'color:#fff');
+  await postToBrevo({
+    sender: { name: 'PlacementOS', email: SENDER_EMAIL },
+    to: [{ email: to, name }],
+    subject: `🔥 STREAK DANGER: Save your ${streak}-day streak!`,
+    htmlContent: baseTemplate(`
+      <div style="font-size:24px;font-weight:800;color:#ef4444;margin-bottom:10px;">Streak Safeguard Alert 🔥</div>
+      <div style="font-size:15px;color:#999;line-height:1.6;margin-bottom:20px;">
+        Hi <strong style="color:#fff;">${name}</strong>,<br>
+        Your <strong>${streak}-day consistency streak</strong> is in danger of resetting at midnight! You have not completed any of your scheduled tasks for today's mission: <strong>${dayName}</strong>.
+      </div>
+      <div style="background:#2d1a1a;border:1px solid #ef4444;border-radius:8px;padding:16px;margin-bottom:20px;color:#fca5a5;">
+        ⚠️ Complete at least one task or solve one problem on the Dashboard before 12:00 AM to keep your streak alive!
+      </div>
+      <div>
+        <a href="${APP_URL}/" style="${warningBtnStyle}">⚡ SAVE MY STREAK NOW</a>
+      </div>
+    `),
+  });
+};
+
+// ─── Progress encouragement email (7:00 PM Check-in if tasks done) ──────────────
+exports.sendProgressEncouragementEmail = async (to, name, dayName, tasksCount) => {
+  await postToBrevo({
+    sender: { name: 'PlacementOS', email: SENDER_EMAIL },
+    to: [{ email: to, name }],
+    subject: `🌟 Consistency check-in: Great job today!`,
+    htmlContent: baseTemplate(`
+      <div style="font-size:24px;font-weight:800;color:#00e87a;margin-bottom:10px;">Great Progress Today! 🌟</div>
+      <div style="font-size:15px;color:#999;line-height:1.6;margin-bottom:20px;">
+        Hi <strong style="color:#fff;">${name}</strong>,<br>
+        Awesome job on your placement prep today! You have successfully completed your tasks for <strong>${dayName}</strong>.
+      </div>
+      <div style="background:#1a2d22;border:1px solid #00e87a;border-radius:8px;padding:16px;margin-bottom:20px;color:#a7f3d0;font-family:monospace;font-size:13px;">
+        ✓ MISSION ACCOMPLISHED // consistency level locked in for the day.
+      </div>
+      <div>
+        <a href="${APP_URL}/" style="${btnStyle}">➔ VIEW DASHBOARD</a>
+      </div>
+    `),
+  });
+};
