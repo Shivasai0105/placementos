@@ -1,16 +1,77 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useApi } from '../hooks/useApi';
 import { showToast } from '../components/Toast';
 import { PLAN } from '../data/plan';
 
+const AI_CACHE_KEY = 'ai_daily_plan_cache';
+const AI_CACHE_TTL = 6 * 60 * 60 * 1000;
+
+function computeWeakTopics(tasks) {
+  const tagStats = {};
+  PLAN.forEach((week, wi) =>
+    week.days.forEach((day, di) =>
+      day.tasks.forEach((task, ti) => {
+        const tag = task.tag;
+        if (!tagStats[tag]) tagStats[tag] = { done: 0, total: 0 };
+        tagStats[tag].total++;
+        if (tasks[`w${wi}d${di}t${ti}`]) tagStats[tag].done++;
+      })
+    )
+  );
+  return Object.entries(tagStats)
+    .map(([tag, { done, total }]) => ({ tag, pct: Math.round((done / total) * 100) }))
+    .sort((a, b) => a.pct - b.pct);
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { request } = useApi();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [progress, setProgress] = useState({ tasks: {}, problems: {} });
   const [loading, setLoading] = useState(true);
   const [uptime, setUptime] = useState("00D : 00H : 00M");
+  const [aiPlan, setAiPlan] = useState(null);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  /* ── Fetch AI plan (uses cache if fresh) ── */
+  const fetchAiInsight = useCallback(async (progressTasks, statsData) => {
+    setAiLoading(true);
+    try {
+      const cached = sessionStorage.getItem(AI_CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < AI_CACHE_TTL) {
+          setAiPlan(data);
+          setAiLoading(false);
+          return;
+        }
+      }
+      const start = new Date(user?.startDate || Date.now());
+      start.setHours(0, 0, 0, 0);
+      const now = new Date(); now.setHours(0, 0, 0, 0);
+      const offset = Math.max(0, Math.floor((now - start) / 86400000));
+      const daysLeft = Math.max(0, 56 - offset);
+      const weakTopics = computeWeakTopics(progressTasks).slice(0, 3);
+      const plan = await request('/api/ai/daily-plan', {
+        method: 'POST',
+        body: JSON.stringify({
+          stats: statsData,
+          weakTopics,
+          targetCompanies: user?.targetCompanies || [],
+          daysLeft,
+        }),
+      });
+      setAiPlan(plan);
+      sessionStorage.setItem(AI_CACHE_KEY, JSON.stringify({ data: plan, timestamp: Date.now() }));
+    } catch (_) {
+      // Silent fail — dashboard widget is non-critical
+    } finally {
+      setAiLoading(false);
+    }
+  }, [user]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -20,12 +81,14 @@ export default function Dashboard() {
       ]);
       setStats(statsData);
       setProgress(progressData);
+      fetchAiInsight(progressData.tasks || {}, statsData);
     } catch (err) {
       showToast('Error', err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchAiInsight]);
+
 
   useEffect(() => {
     fetchData();
@@ -182,29 +245,51 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Roadmap Sidebar */}
-        <div className="dash-card roadmap-sidebar">
-          <div className="sys-box-label">BATTLE PLAN ROADMAP</div>
-          <div className="rm-list">
-            {PLAN.map((planWk, wi) => {
-              const isPast = wi < w;
-              const isActive = wi === w;
-              const isLocked = wi > w;
-              const status = isActive ? 'active' : isLocked ? 'locked' : 'past';
-              
-              return (
-                <div key={wi} className={`rm-item ${status}`}>
-                  <div className="rm-icon">
-                    {isActive ? <div className="dot green pulse" /> : isPast ? <div className="dot green solid" /> : <div className="lock-icon">🔒</div>}
-                  </div>
-                  <div className="rm-content">
-                    <div className="rm-title">WEEK {String(wi + 1).padStart(2, '0')}: {planWk.theme}</div>
-                    <div className="rm-desc">{planWk.focus}</div>
-                  </div>
-                </div>
-              );
-            })}
+        {/* AI Insight Widget */}
+        <div className="dash-card ai-insight-widget">
+          <div className="ai-widget-header">
+            <div className="sys-box-label">✨ AI STUDY INSIGHT</div>
+            <button className="ai-widget-view-btn" onClick={() => navigate('/ai-plan')}>
+              VIEW FULL PLAN →
+            </button>
           </div>
+
+          {aiLoading ? (
+            <div className="ai-widget-loading">
+              <div className="aip-skeleton ai-sk-line" style={{ width: '90%', height: '14px', marginBottom: '10px' }} />
+              <div className="aip-skeleton ai-sk-line" style={{ width: '60%', height: '14px', marginBottom: '16px' }} />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="aip-skeleton ai-sk-line" style={{ width: '80px', height: '24px', borderRadius: '4px' }} />
+                <div className="aip-skeleton ai-sk-line" style={{ width: '70px', height: '24px', borderRadius: '4px' }} />
+              </div>
+            </div>
+          ) : aiPlan ? (
+            <div className="ai-widget-body">
+              <p className="ai-widget-headline">{aiPlan.headline}</p>
+              {aiPlan.focusTopics?.length > 0 && (
+                <div className="ai-widget-pills">
+                  {aiPlan.focusTopics.slice(0, 3).map((t, i) => (
+                    <span key={i} className={`ai-widget-pill tag-${t.toLowerCase()}`}>{t}</span>
+                  ))}
+                </div>
+              )}
+              <div className="ai-widget-tasks">
+                {aiPlan.tasks?.slice(0, 3).map((task, i) => (
+                  <div key={i} className="ai-widget-task-row">
+                    <span className="ai-widget-task-dot">›</span>
+                    <span className="ai-widget-task-name">{task.name}</span>
+                    <span className="ai-widget-task-dur">{task.duration}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="ai-widget-empty">
+              <p>AI insights unavailable.</p>
+              <button className="aip-regen-btn" style={{ marginTop: '10px', fontSize: '0.7rem', padding: '6px 14px' }}
+                onClick={() => navigate('/ai-plan')}>OPEN AI PLAN →</button>
+            </div>
+          )}
         </div>
 
       </div>

@@ -1,3 +1,6 @@
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -9,6 +12,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const progressRoutes = require('./routes/progress');
 const applicationRoutes = require('./routes/applications');
+const aiRoutes = require('./routes/ai');
 const startDailyTaskJob = require('./services/cronJobs');
 
 const app = express();
@@ -59,6 +63,7 @@ app.use(express.json({ limit: '10kb' })); // limit body size to prevent large pa
 app.use('/api/auth', authRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/applications', applicationRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

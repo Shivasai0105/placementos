@@ -36,17 +36,17 @@ export default function Navbar({ onMenuOpen }) {
         <NavLink to="/applications" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`}>
           TRACKER
         </NavLink>
-        <NavLink to="/company" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`}>
-          COMPANIES
+        <NavLink to="/ai-resume" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`}>
+          AI RESUME
+        </NavLink>
+        <NavLink to="/ai-plan" className={({ isActive }) => `tn-link tn-link-ai${isActive ? ' active' : ''}`}>
+          ✨ AI PLAN
+        </NavLink>
+        <NavLink to="/ai-placement" className={({ isActive }) => `tn-link tn-link-ai${isActive ? ' active' : ''}`}>
+          🔮 PREDICTOR
         </NavLink>
         <NavLink to="/problems" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`}>
           PROBLEMS
-        </NavLink>
-        <NavLink to="/comm-prep" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`}>
-          COMMUNICATION
-        </NavLink>
-        <NavLink to="/interview-prep" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`}>
-          INTERVIEW
         </NavLink>
         <NavLink to="/settings" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`}>
           CONFIG

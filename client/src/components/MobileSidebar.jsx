@@ -7,10 +7,10 @@ const navItems = [
   { to: '/',              end: true,  icon: '>', label: 'DASHBOARD'   },
   { to: '/plan',          end: false, icon: '>', label: 'ROADMAP'     },
   { to: '/applications',  end: false, icon: '>', label: 'TRACKER'     },
+  { to: '/ai-resume',     end: false, icon: '>', label: 'AI RESUME'   },
+  { to: '/ai-plan',       end: false, icon: '✨', label: 'AI PLAN'         },
+  { to: '/ai-placement',  end: false, icon: '🔮', label: 'AI PREDICTOR'    },
   { to: '/problems',      end: false, icon: '>', label: 'PROBLEMS'    },
-  { to: '/company',       end: false, icon: '>', label: 'COMPANIES'   },
-  { to: '/comm-prep',     end: false, icon: '>', label: 'COMMUNICATION'},
-  { to: '/interview-prep',end: false, icon: '>', label: 'INTERVIEW'   },
   { to: '/settings',      end: false, icon: '>', label: 'CONFIG'      },
 ];
 

@@ -20,6 +20,8 @@ export default function Applications() {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [scrapeUrl, setScrapeUrl] = useState('');
+  const [scraping, setScraping] = useState(false);
 
   const fetchApps = useCallback(async () => {
     try {
@@ -34,7 +36,35 @@ export default function Applications() {
 
   useEffect(() => { fetchApps(); }, []);
 
-  const openAdd = () => { setForm(EMPTY_FORM); setModal('add'); };
+  const openAdd = () => { setForm(EMPTY_FORM); setScrapeUrl(''); setModal('add'); };
+
+  const handleScrape = async () => {
+    if (!scrapeUrl.trim()) {
+      showToast('Warning', 'Please enter a valid job URL.');
+      return;
+    }
+    setScraping(true);
+    try {
+      const data = await request('/api/applications/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: scrapeUrl }),
+      });
+      
+      setForm(f => ({
+        ...f,
+        company: data.company || f.company,
+        role: data.role || f.role,
+        link: data.link || scrapeUrl,
+        notes: data.notes ? `[Imported from Job URL]\n${data.notes}` : f.notes,
+      }));
+      showToast('✅ Scraped!', `Autofilled details for ${data.company}.`);
+    } catch (err) {
+      showToast('Scrape Failed', err.message || 'Could not parse URL details.');
+    } finally {
+      setScraping(false);
+    }
+  };
   const openEdit = (app) => {
     setForm({
       company: app.company,
@@ -220,6 +250,36 @@ export default function Applications() {
             </div>
             
             <form onSubmit={handleSave} className="modal-form">
+              {modal === 'add' && (
+                <div style={{ 
+                  background: 'var(--surface2)', 
+                  border: '1px dashed var(--border2)', 
+                  borderRadius: 'var(--radius-sm)', 
+                  padding: '12px', 
+                  marginBottom: '16px' 
+                }}>
+                  <label className="form-label" style={{ color: 'var(--blue)' }}>☇ QUICK AUTOFILL_FROM_URL</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                      type="url" 
+                      placeholder="Paste job post URL (LinkedIn, Google Careers, etc.)" 
+                      value={scrapeUrl}
+                      onChange={(e) => setScrapeUrl(e.target.value)}
+                      style={{ flex: 1, fontSize: '0.8rem', background: 'var(--bg)' }}
+                    />
+                    <button 
+                      type="button" 
+                      className="btn" 
+                      onClick={handleScrape} 
+                      disabled={scraping}
+                      style={{ fontFamily: "'Fira Code', monospace" }}
+                    >
+                      {scraping ? 'PARSING...' : 'PARSE'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">COMPANY *</label>

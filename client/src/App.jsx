@@ -10,9 +10,9 @@ import Problems from './pages/Problems';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Applications from './pages/Applications';
-import CompanyQuestions from './pages/CompanyQuestions';
-import CommPrep from './pages/CommPrep';
-import InterviewPrep from './pages/InterviewPrep';
+import AiResume from './pages/AiResume';
+import AiStudyPlan from './pages/AiStudyPlan';
+import AiPlacement from './pages/AiPlacement';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -78,9 +78,9 @@ export default function App() {
         <Route path="/problems" element={<ProtectedRoute><AppLayout><Problems /></AppLayout></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute><AppLayout><Analytics /></AppLayout></ProtectedRoute>} />
         <Route path="/applications" element={<ProtectedRoute><AppLayout><Applications /></AppLayout></ProtectedRoute>} />
-        <Route path="/company" element={<ProtectedRoute><AppLayout><CompanyQuestions /></AppLayout></ProtectedRoute>} />
-        <Route path="/comm-prep" element={<ProtectedRoute><AppLayout><CommPrep /></AppLayout></ProtectedRoute>} />
-        <Route path="/interview-prep" element={<ProtectedRoute><AppLayout><InterviewPrep /></AppLayout></ProtectedRoute>} />
+        <Route path="/ai-resume" element={<ProtectedRoute><AppLayout><AiResume /></AppLayout></ProtectedRoute>} />
+        <Route path="/ai-plan" element={<ProtectedRoute><AppLayout><AiStudyPlan /></AppLayout></ProtectedRoute>} />
+        <Route path="/ai-placement" element={<ProtectedRoute><AppLayout><AiPlacement /></AppLayout></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

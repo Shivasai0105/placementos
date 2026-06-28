@@ -23,8 +23,8 @@ export default function MobileNav() {
           <span>PROB</span>
         </NavLink>
         
-        <NavLink to="/interview-prep" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`} style={{ flexDirection: 'column', gap: '4px', fontSize: '0.6rem' }}>
-          <span>INTV</span>
+        <NavLink to="/ai-plan" className={({ isActive }) => `tn-link${isActive ? ' active' : ''}`} style={{ flexDirection: 'column', gap: '4px', fontSize: '0.6rem' }}>
+          <span>✨AI</span>
         </NavLink>
 
       </div>
