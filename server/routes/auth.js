@@ -92,8 +92,9 @@ router.post('/register', authLimiter, async (req, res) => {
     }
 
     // Email IS configured — send verification link
+    let vToken;
     try {
-      const vToken = user.createVerificationToken();
+      vToken = user.createVerificationToken();
       await user.save({ validateBeforeSave: false });
       await sendVerificationEmail(user.email, user.name, vToken);
     } catch (emailErr) {
@@ -101,10 +102,15 @@ router.post('/register', authLimiter, async (req, res) => {
       console.warn('Verification email failed:', emailErr.message);
     }
 
-    res.status(201).json({
+    const responseData = {
       message: 'Account created! Please check your email to verify your account.',
       requiresVerification: true,
-    });
+    };
+    if (process.env.NODE_ENV !== 'production' && vToken) {
+      responseData.devVerificationLink = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email/${vToken}`;
+    }
+
+    res.status(201).json(responseData);
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ message: 'Server error. Please try again.' });
@@ -124,11 +130,23 @@ router.post('/login', authLimiter, async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' });
 
     if (!user.isVerified) {
-      return res.status(403).json({
-        message: 'Please verify your email before logging in.',
-        requiresVerification: true,
-        email: user.email,
-      });
+      if (!emailEnabled()) {
+        // Auto-verify since emails are disabled
+        user.isVerified = true;
+        await user.save({ validateBeforeSave: false });
+      } else {
+        const responseData = {
+          message: 'Please verify your email before logging in.',
+          requiresVerification: true,
+          email: user.email,
+        };
+        if (process.env.NODE_ENV !== 'production') {
+          const vToken = user.createVerificationToken();
+          await user.save({ validateBeforeSave: false });
+          responseData.devVerificationLink = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email/${vToken}`;
+        }
+        return res.status(403).json(responseData);
+      }
     }
 
     const token = signToken(user._id);
@@ -177,9 +195,29 @@ router.post('/resend-verification', emailLimiter, async (req, res) => {
 
     const token = user.createVerificationToken();
     await user.save({ validateBeforeSave: false });
-    await sendVerificationEmail(user.email, user.name, token);
 
-    res.json({ message: 'Verification email resent. Please check your inbox.' });
+    let emailSent = true;
+    try {
+      await sendVerificationEmail(user.email, user.name, token);
+    } catch (emailErr) {
+      console.warn('Resend verification email failed:', emailErr.message);
+      emailSent = false;
+    }
+
+    const responseData = {
+      message: emailSent
+        ? 'Verification email resent. Please check your inbox.'
+        : 'Account exists but email sending failed. Please try again later.'
+    };
+    if (process.env.NODE_ENV !== 'production') {
+      responseData.devVerificationLink = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email/${token}`;
+    }
+
+    if (!emailSent && process.env.NODE_ENV === 'production') {
+      return res.status(500).json({ message: 'Could not send verification email. Please try again.' });
+    }
+
+    res.json(responseData);
   } catch (err) {
     console.error('Resend verification error:', err);
     res.status(500).json({ message: 'Could not send email. Please try again later.' });
@@ -200,9 +238,23 @@ router.post('/forgot-password', emailLimiter, async (req, res) => {
 
     const token = user.createPasswordResetToken();
     await user.save({ validateBeforeSave: false });
-    await sendPasswordResetEmail(user.email, user.name, token);
 
-    res.json({ message: 'Password reset email sent. Please check your inbox.' });
+    let emailSent = true;
+    try {
+      await sendPasswordResetEmail(user.email, user.name, token);
+    } catch (emailErr) {
+      console.warn('Password reset email failed:', emailErr.message);
+      emailSent = false;
+    }
+
+    const responseData = {
+      message: 'If that email is registered, a reset link has been sent.'
+    };
+    if (process.env.NODE_ENV !== 'production') {
+      responseData.devResetLink = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${token}`;
+    }
+
+    res.json(responseData);
   } catch (err) {
     console.error('Forgot password error:', err);
     res.status(500).json({ message: 'Could not send email. Please try again later.' });

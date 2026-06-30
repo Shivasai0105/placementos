@@ -11,6 +11,9 @@ export default function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false); // "check your email" state
+  const [devLink, setDevLink] = useState(null); // direct link for testing
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState('');
 
   const { request } = useApi();
   const { login } = useAuth();
@@ -40,12 +43,36 @@ export default function Register() {
         navigate('/');
       } else {
         // Email verification required — show "check inbox" screen
+        if (data.devVerificationLink) {
+          setDevLink(data.devVerificationLink);
+        }
         setDone(true);
       }
     } catch (err) {
       setError(err.message || 'Registration failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    setResending(true);
+    setResendStatus('');
+    try {
+      const data = await request('/api/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email: form.email }),
+      });
+      if (data.devVerificationLink) {
+        setDevLink(data.devVerificationLink);
+        setResendStatus('Verification link generated in Dev Mode!');
+      } else {
+        setResendStatus('Verification email resent! Please check your inbox.');
+      }
+    } catch (err) {
+      setResendStatus(err.message || 'Could not resend verification email.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -61,9 +88,50 @@ export default function Register() {
             We sent a verification link to <strong>{form.email}</strong>.
             Click the link to activate your account.
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.6 }}>
+
+          <button
+            className="btn btn-green"
+            onClick={resendVerification}
+            disabled={resending}
+            style={{ marginTop: '10px', marginBottom: '12px', width: '100%' }}
+          >
+            {resending ? 'Resending...' : '↺ Resend Verification Email'}
+          </button>
+
+          {resendStatus && (
+            <div style={{
+              fontSize: '0.8rem',
+              color: resendStatus.includes('failed') || resendStatus.includes('Could not') ? 'var(--red)' : 'var(--green)',
+              marginBottom: '16px'
+            }}>
+              {resendStatus}
+            </div>
+          )}
+
+          {devLink && (
+            <div style={{
+              margin: '20px 0',
+              padding: '16px',
+              background: 'rgba(0, 232, 122, 0.1)',
+              border: '1px dashed var(--green)',
+              borderRadius: '8px',
+              textAlign: 'left'
+            }}>
+              <div style={{ color: 'var(--green)', fontWeight: 'bold', marginBottom: '6px', fontSize: '0.9rem' }}>
+                🛠️ Dev Mode: Direct Verification Link
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#ccc', marginBottom: '12px' }}>
+                Since email delivery might not be set up in this environment, you can verify this account immediately by clicking below:
+              </div>
+              <a href={devLink} className="btn btn-green btn-sm" style={{ width: '100%', textAlign: 'center', boxSizing: 'border-box', display: 'inline-block' }}>
+                Verify & Log In Directly
+              </a>
+            </div>
+          )}
+
+          <div style={{ fontSize: '0.75rem', color: 'var(--muted)', lineHeight: 1.6, marginTop: '16px' }}>
             Didn't get it? Check your spam folder.<br />
-            Or <Link to="/login" style={{ color: 'var(--green)' }}>go back to login</Link> to resend.
+            Or <Link to="/login" style={{ color: 'var(--green)' }}>go back to login</Link>.
           </div>
         </div>
       </div>

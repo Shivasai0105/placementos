@@ -10,6 +10,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   const [resending, setResending] = useState(false);
+  const [devLink, setDevLink] = useState(null);
   const { login } = useAuth();
   const { request } = useApi();
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setUnverifiedEmail(null);
+    setDevLink(null);
     setLoading(true);
     try {
       const data = await request('/api/auth/login', {
@@ -29,6 +31,9 @@ export default function Login() {
     } catch (err) {
       if (err.requiresVerification) {
         setUnverifiedEmail(err.email || email);
+        if (err.devVerificationLink) {
+          setDevLink(err.devVerificationLink);
+        }
       } else {
         setError(err.message || 'Login failed. Please try again.');
       }
@@ -40,13 +45,18 @@ export default function Login() {
   const resendVerification = async () => {
     setResending(true);
     try {
-      await request('/api/auth/resend-verification', {
+      const data = await request('/api/auth/resend-verification', {
         method: 'POST',
         body: JSON.stringify({ email: unverifiedEmail }),
       });
       setError('');
-      setUnverifiedEmail(null);
-      alert('Verification email resent! Please check your inbox.');
+      if (data.devVerificationLink) {
+        setDevLink(data.devVerificationLink);
+        alert('Verification link generated in Dev Mode!');
+      } else {
+        setUnverifiedEmail(null);
+        alert('Verification email resent! Please check your inbox.');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -74,6 +84,24 @@ export default function Login() {
             <button className="btn btn-green" onClick={resendVerification} disabled={resending} style={{ marginTop: '10px', width: '100%' }}>
               {resending ? 'Sending...' : '↺ Resend Verification Email'}
             </button>
+
+            {devLink && (
+              <div style={{
+                marginTop: '12px',
+                padding: '12px',
+                background: 'rgba(0, 232, 122, 0.1)',
+                border: '1px dashed var(--green)',
+                borderRadius: '6px',
+                textAlign: 'left'
+              }}>
+                <div style={{ color: 'var(--green)', fontWeight: 'bold', fontSize: '0.8rem', marginBottom: '4px' }}>
+                  🛠️ Dev Mode: Direct Verification Link
+                </div>
+                <a href={devLink} className="btn btn-green btn-sm" style={{ width: '100%', textAlign: 'center', boxSizing: 'border-box', marginTop: '6px', display: 'inline-block' }}>
+                  Verify & Log In Directly
+                </a>
+              </div>
+            )}
           </div>
         )}
 

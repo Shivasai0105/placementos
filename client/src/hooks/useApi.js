@@ -54,7 +54,12 @@ export const useApi = () => {
       );
     }
     if (!res.ok) {
-      throw new Error(data.message || 'Something went wrong.');
+      const error = new Error(data.message || 'Something went wrong.');
+      error.requiresVerification = data.requiresVerification;
+      error.email = data.email;
+      error.devVerificationLink = data.devVerificationLink;
+      error.devResetLink = data.devResetLink;
+      throw error;
     }
     return data;
   };

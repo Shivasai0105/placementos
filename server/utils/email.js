@@ -88,6 +88,11 @@ const baseTemplate = (content) => `
 // ─── Verification email ───────────────────────────────────────────────────────
 exports.sendVerificationEmail = async (to, name, token) => {
   const link = `${APP_URL}/verify-email/${token}`;
+  console.log(`\n========================================`);
+  console.log(`[VERIFICATION EMAIL] Sent to: ${to}`);
+  console.log(`Link: ${link}`);
+  console.log(`========================================\n`);
+
   await postToBrevo({
     sender: { name: 'PlacementOS', email: SENDER_EMAIL },
     to: [{ email: to, name }],
@@ -111,6 +116,11 @@ exports.sendVerificationEmail = async (to, name, token) => {
 // ─── Password reset email ─────────────────────────────────────────────────────
 exports.sendPasswordResetEmail = async (to, name, token) => {
   const link = `${APP_URL}/reset-password/${token}`;
+  console.log(`\n========================================`);
+  console.log(`[PASSWORD RESET EMAIL] Sent to: ${to}`);
+  console.log(`Link: ${link}`);
+  console.log(`========================================\n`);
+
   await postToBrevo({
     sender: { name: 'PlacementOS', email: SENDER_EMAIL },
     to: [{ email: to, name }],

@@ -7,6 +7,7 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+  const [devResetLink, setDevResetLink] = useState(null);
   const { request } = useApi();
 
   const handleSubmit = async (e) => {
@@ -14,10 +15,13 @@ export default function ForgotPassword() {
     setError('');
     setLoading(true);
     try {
-      await request('/api/auth/forgot-password', {
+      const data = await request('/api/auth/forgot-password', {
         method: 'POST',
         body: JSON.stringify({ email }),
       });
+      if (data.devResetLink) {
+        setDevResetLink(data.devResetLink);
+      }
       setDone(true);
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -37,6 +41,28 @@ export default function ForgotPassword() {
             If <strong>{email}</strong> is registered, a password reset link has been sent.
             Check your spam folder too.
           </div>
+
+          {devResetLink && (
+            <div style={{
+              margin: '20px 0',
+              padding: '16px',
+              background: 'rgba(0, 232, 122, 0.1)',
+              border: '1px dashed var(--green)',
+              borderRadius: '8px',
+              textAlign: 'left'
+            }}>
+              <div style={{ color: 'var(--green)', fontWeight: 'bold', marginBottom: '6px', fontSize: '0.9rem' }}>
+                🛠️ Dev Mode: Direct Reset Link
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#ccc', marginBottom: '12px' }}>
+                Since email delivery might not be set up in this environment, you can reset your password immediately by clicking below:
+              </div>
+              <a href={devResetLink} className="btn btn-green btn-sm" style={{ width: '100%', textAlign: 'center', boxSizing: 'border-box', display: 'inline-block' }}>
+                Reset Password Directly
+              </a>
+            </div>
+          )}
+
           <Link to="/login" style={{ fontSize: '0.82rem', color: 'var(--green)' }}>← Back to login</Link>
         </div>
       </div>
