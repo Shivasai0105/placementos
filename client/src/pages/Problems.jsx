@@ -3,6 +3,20 @@ import { useApi } from '../hooks/useApi';
 import { showToast } from '../components/Toast';
 import { PROBLEMS } from '../data/problems';
 
+// Helper to generate the exact LeetCode link from name/number
+const getLeetCodeLink = (name, lc) => {
+  if (lc && lc.startsWith('#')) {
+    const slug = name
+      .toLowerCase()
+      .replace(/&/g, 'and')
+      .replace(/[^a-z0-9\s-]/g, '') // remove special characters
+      .replace(/\s+/g, '-')         // replace spaces with hyphens
+      .replace(/-+/g, '-');         // remove duplicate hyphens
+    return `https://leetcode.com/problems/${slug}/`;
+  }
+  return `https://www.google.com/search?q=leetcode+${encodeURIComponent(name)}`;
+};
+
 export default function Problems() {
   const { request } = useApi();
   const [progress, setProgress] = useState({ tasks: {}, problems: {} });
@@ -112,13 +126,29 @@ export default function Problems() {
                   const tags = (p.name.toLowerCase().includes('tree') || p.name.toLowerCase().includes('graph'))
                     ? ['DFS', 'BFS'] : ['HASH_MAP', 'ARRAY'];
 
+                  const link = getLeetCodeLink(p.name, p.lc);
+
                   return (
                     <div
                       key={p.id}
                       className={`pb-row ${done ? 'done' : ''}`}
-                      onClick={() => toggleProb(p.id)}
+                      onClick={() => window.open(link, '_blank')}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <div className="pb-col-num">{String(p.lc || p.id).padStart(3, '0')}</div>
+                      {/* Checkbox Col */}
+                      <div 
+                        className="pb-col-check"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleProb(p.id);
+                        }}
+                      >
+                        <div className={`pb-checkbox ${done ? 'checked' : ''}`}>
+                          {done ? '✓' : ''}
+                        </div>
+                      </div>
+
+                      <div className="pb-col-num">{String(p.lc || p.id).replace('#', '').padStart(3, '0')}</div>
                       
                       <div className="pb-col-main">
                         <div className="pb-prob-title">{p.name}</div>
@@ -132,12 +162,17 @@ export default function Problems() {
                           {p.diff.toUpperCase()}
                         </span>
                       </div>
-                      
-                      {done && (
-                        <div className="pb-col-status">
-                          <span className="pb-status-icon">✓</span>
-                        </div>
-                      )}
+
+                      <div className="pb-col-solve" onClick={(e) => e.stopPropagation()}>
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="pb-btn-solve"
+                        >
+                          SOLVE ↗
+                        </a>
+                      </div>
                     </div>
                   );
                 })}

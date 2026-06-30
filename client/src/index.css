@@ -3082,6 +3082,72 @@ input::placeholder { color: var(--muted); }
   font-weight: 800;
 }
 
+/* Checkbox Column */
+.pb-col-check {
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.pb-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+  font-size: 0.75rem;
+  background: var(--surface);
+  transition: all 0.2s;
+  font-weight: 800;
+}
+.pb-checkbox:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 8px rgba(0, 232, 122, 0.2);
+}
+.pb-checkbox.checked {
+  background: var(--green);
+  border-color: var(--green);
+  color: #000;
+}
+
+/* Solve Link/Button Column */
+.pb-col-solve {
+  width: 100px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+.pb-btn-solve {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 12px;
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: all 0.2s ease-in-out;
+  display: inline-block;
+  text-align: center;
+}
+.pb-row:hover .pb-btn-solve {
+  border-color: var(--green);
+  color: var(--green);
+  box-shadow: 0 0 8px rgba(0, 232, 122, 0.1);
+}
+.pb-btn-solve:hover {
+  background: var(--green) !important;
+  color: #000 !important;
+  border-color: var(--green) !important;
+  box-shadow: 0 0 12px rgba(0, 232, 122, 0.4) !important;
+  transform: scale(1.05);
+}
+
 .pb-empty {
   text-align: center;
   padding: 60px 0;
