@@ -1,12 +1,24 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const auth = require('../middleware/authMiddleware');
 const Progress = require('../models/Progress');
 const User = require('../models/User');
+const Revision = require('../models/Revision');
+const PROBLEMS = require('../data/problems');
+const { statsCacheMiddleware, invalidateStatsCache } = require('../middleware/statsCache');
 
 // Static plan data (mirrored from frontend) used for server-side stats computation
 const PLAN = require('../data/plan');
 
 const router = express.Router();
+
+// ─── Rate Limiter for write operations ────────────────────────────────────────
+const progressWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { message: 'Too many progress updates. Please slow down.' },
+  standardHeaders: true, legacyHeaders: false,
+});
 
 // All routes below require authentication
 router.use(auth);
@@ -43,7 +55,10 @@ router.get('/', async (req, res) => {
     const commPrepDays = Object.fromEntries(progress.commPrepDays || {});
     const interviewReviewed = Object.fromEntries(progress.interviewReviewed || {});
 
-    res.json({ tasks, problems, commPrepDays, interviewReviewed });
+    // Fetch user's revisions
+    const revisions = await Revision.find({ userId: req.userId });
+
+    res.json({ tasks, problems, commPrepDays, interviewReviewed, revisions });
   } catch (err) {
     console.error('Get progress error:', err);
     res.status(500).json({ message: 'Server error.' });
@@ -51,7 +66,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/progress/task — toggle a task
-router.post('/task', async (req, res) => {
+router.post('/task', progressWriteLimiter, async (req, res) => {
   try {
     const { week, day, taskIndex } = req.body;
     if (week === undefined || day === undefined || taskIndex === undefined) {
@@ -66,6 +81,7 @@ router.post('/task', async (req, res) => {
     progress.tasks.set(key, !current);
     await progress.save();
 
+    invalidateStatsCache(req.userId);
     res.json({ key, value: !current });
   } catch (err) {
     console.error('Toggle task error:', err);
@@ -74,7 +90,7 @@ router.post('/task', async (req, res) => {
 });
 
 // POST /api/progress/problem — toggle a problem
-router.post('/problem', async (req, res) => {
+router.post('/problem', progressWriteLimiter, async (req, res) => {
   try {
     const { problemId } = req.body;
     if (!problemId) return res.status(400).json({ message: 'problemId is required.' });
@@ -87,6 +103,7 @@ router.post('/problem', async (req, res) => {
     progress.problems.set(key, !current);
     await progress.save();
 
+    invalidateStatsCache(req.userId);
     res.json({ key, value: !current });
   } catch (err) {
     console.error('Toggle problem error:', err);
@@ -95,7 +112,7 @@ router.post('/problem', async (req, res) => {
 });
 
 // POST /api/progress/comm-day — toggle a communication prep day
-router.post('/comm-day', async (req, res) => {
+router.post('/comm-day', progressWriteLimiter, async (req, res) => {
   try {
     const { day } = req.body;
     if (day === undefined) return res.status(400).json({ message: 'day is required.' });
@@ -108,6 +125,7 @@ router.post('/comm-day', async (req, res) => {
     progress.commPrepDays.set(key, !current);
     await progress.save();
 
+    invalidateStatsCache(req.userId);
     res.json({ key, value: !current });
   } catch (err) {
     console.error('Comm day toggle error:', err);
@@ -116,7 +134,7 @@ router.post('/comm-day', async (req, res) => {
 });
 
 // POST /api/progress/interview-review — toggle an interview question reviewed state
-router.post('/interview-review', async (req, res) => {
+router.post('/interview-review', progressWriteLimiter, async (req, res) => {
   try {
     const { questionId } = req.body;
     if (!questionId) return res.status(400).json({ message: 'questionId is required.' });
@@ -136,7 +154,7 @@ router.post('/interview-review', async (req, res) => {
 });
 
 // POST /api/progress/log-today — mark all today's tasks done
-router.post('/log-today', async (req, res) => {
+router.post('/log-today', progressWriteLimiter, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     const offset = getDayOffset(user.startDate);
@@ -151,6 +169,7 @@ router.post('/log-today', async (req, res) => {
     });
     await progress.save();
 
+    invalidateStatsCache(req.userId);
     res.json({ message: 'Today logged!', tasksMarked: dayTasks.length });
   } catch (err) {
     console.error('Log today error:', err);
@@ -159,7 +178,7 @@ router.post('/log-today', async (req, res) => {
 });
 
 // POST /api/progress/import — import data from localStorage export
-router.post('/import', async (req, res) => {
+router.post('/import', progressWriteLimiter, async (req, res) => {
   try {
     const { tasks, problems } = req.body;
 
@@ -179,6 +198,7 @@ router.post('/import', async (req, res) => {
     }
 
     await progress.save();
+    invalidateStatsCache(req.userId);
     res.json({ message: 'Progress imported successfully!' });
   } catch (err) {
     console.error('Import error:', err);
@@ -187,7 +207,7 @@ router.post('/import', async (req, res) => {
 });
 
 // GET /api/progress/stats — computed analytics stats
-router.get('/stats', async (req, res) => {
+router.get('/stats', statsCacheMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     let progress = await Progress.findOne({ userId: req.userId });
@@ -257,7 +277,27 @@ router.get('/stats', async (req, res) => {
       return { day: d + 1, done: anyDone, isToday, isFuture };
     });
 
-    res.json({
+    // Topic breakdown calculation for DSA problems
+    const categoryBreakdown = {};
+    PROBLEMS.forEach(category => {
+      let solved = 0;
+      const total = category.problems.length;
+      category.problems.forEach(p => {
+        if (problems[`p_${p.id}`]) {
+          solved++;
+        }
+      });
+      const percentage = total > 0 ? Math.round((solved / total) * 100) : 0;
+      categoryBreakdown[category.topic] = { solved, total, percentage };
+    });
+
+    // Determine weakest topics (percentage < 60, sorted ascending)
+    const weakestTopics = Object.entries(categoryBreakdown)
+      .map(([category, data]) => ({ category, percentage: data.percentage }))
+      .sort((a, b) => a.percentage - b.percentage)
+      .slice(0, 3);
+
+    const statsData = {
       tasksDone,
       probsDone,
       dsaDone: dsaDone + probsDone,
@@ -267,10 +307,109 @@ router.get('/stats', async (req, res) => {
       weeklyStats,
       streakMap,
       readiness,
-      offset
-    });
+      offset,
+      categoryBreakdown,
+      weakestTopics
+    };
+
+    // Store in cache for next request
+    if (res.cacheStats) res.cacheStats(statsData);
+    res.json(statsData);
   } catch (err) {
     console.error('Stats error:', err);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// GET /api/progress/revision/due — get due revisions
+router.get('/revision/due', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Due today or earlier
+
+    const dueRevisions = await Revision.find({
+      userId: req.userId,
+      status: 'pending',
+      nextReviewDate: { $lte: today }
+    });
+    res.json(dueRevisions);
+  } catch (err) {
+    console.error('Get due revisions error:', err);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// POST /api/progress/revision — flag a problem for revision
+router.post('/revision', progressWriteLimiter, async (req, res) => {
+  try {
+    const { problemId, title, category } = req.body;
+    if (!problemId || !title || !category) {
+      return res.status(400).json({ message: 'problemId, title, and category are required.' });
+    }
+
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + 3); // Stage 1 is 3 days
+    nextReviewDate.setHours(0, 0, 0, 0); // Normalize to start of day
+
+    // Upsert revision record
+    const revision = await Revision.findOneAndUpdate(
+      { userId: req.userId, problemId },
+      {
+        title,
+        category,
+        stage: 1,
+        nextReviewDate,
+        status: 'pending'
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({ message: 'Problem flagged for revision', revision });
+  } catch (err) {
+    console.error('Flag revision error:', err);
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// POST /api/progress/revision/:id/review — log review attempt outcome (pass/fail)
+router.post('/revision/:id/review', progressWriteLimiter, async (req, res) => {
+  try {
+    const { outcome } = req.body; // 'pass' or 'fail'
+    if (!['pass', 'fail'].includes(outcome)) {
+      return res.status(400).json({ message: 'outcome must be either pass or fail.' });
+    }
+
+    const revision = await Revision.findOne({ _id: req.params.id, userId: req.userId });
+    if (!revision) {
+      return res.status(404).json({ message: 'Revision record not found.' });
+    }
+
+    let nextReviewDate = new Date();
+    nextReviewDate.setHours(0, 0, 0, 0);
+
+    if (outcome === 'pass') {
+      if (revision.stage === 1) {
+        revision.stage = 2;
+        nextReviewDate.setDate(nextReviewDate.getDate() + 7); // +7 days
+        revision.nextReviewDate = nextReviewDate;
+      } else if (revision.stage === 2) {
+        revision.stage = 3;
+        nextReviewDate.setDate(nextReviewDate.getDate() + 14); // +14 days
+        revision.nextReviewDate = nextReviewDate;
+      } else {
+        revision.status = 'completed'; // Finished all stages!
+      }
+    } else {
+      // outcome === 'fail': reset penalty
+      revision.stage = 1;
+      nextReviewDate.setDate(nextReviewDate.getDate() + 1); // try again tomorrow
+      revision.nextReviewDate = nextReviewDate;
+    }
+
+    await revision.save();
+    res.json({ message: 'Revision logged successfully', revision });
+  } catch (err) {
+    console.error('Log review attempt error:', err);
     res.status(500).json({ message: 'Server error.' });
   }
 });

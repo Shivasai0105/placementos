@@ -40,9 +40,12 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Hash password before saving
+// Use lower cost in dev for faster auth; full cost in production
+const BCRYPT_COST = process.env.NODE_ENV === 'production' ? 12 : 10;
+
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
+  this.password = await bcrypt.hash(this.password, BCRYPT_COST);
   next();
 });
 

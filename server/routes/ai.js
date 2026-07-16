@@ -1,5 +1,6 @@
 const express = require('express');
 const auth = require('../middleware/authMiddleware');
+const { aiQueueMiddleware } = require('../middleware/aiQueue');
 const User = require('../models/User');
 const Progress = require('../models/Progress');
 const Application = require('../models/Application');
@@ -9,6 +10,9 @@ const router = express.Router();
 
 // Apply auth middleware to all AI routes
 router.use(auth);
+
+// Apply concurrency queue to all AI routes (max 5 concurrent Gemini calls)
+router.use(aiQueueMiddleware);
 
 // Helper function to extract JSON from potentially markdown-wrapped text
 const extractJson = (text) => {

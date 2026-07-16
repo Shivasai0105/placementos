@@ -14,6 +14,8 @@ const progressRoutes = require('./routes/progress');
 const applicationRoutes = require('./routes/applications');
 const aiRoutes = require('./routes/ai');
 const startDailyTaskJob = require('./services/cronJobs');
+const { getStatsCacheInfo } = require('./middleware/statsCache');
+const { getAiQueueInfo } = require('./middleware/aiQueue');
 
 const app = express();
 
@@ -70,6 +72,21 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PlacementOS API running 🚀', env: process.env.NODE_ENV });
 });
 
+// ─── Server Monitoring Endpoint ──────────────────────────────────────────────
+app.get('/api/monitor', (req, res) => {
+  res.json({
+    status: 'ok',
+    pid: process.pid,
+    uptime: Math.round(process.uptime()),
+    memory: {
+      rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)} MB`,
+      heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`,
+    },
+    statsCache: getStatsCacheInfo(),
+    aiQueue: getAiQueueInfo(),
+  });
+});
+
 // ─── 404 Handler (always JSON, never HTML) ───────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.method} ${req.originalUrl} not found` });
@@ -83,15 +100,26 @@ app.use((err, req, res, next) => {
   res.status(status).json({ message: err.message || 'Internal server error' });
 });
 
+// ─── MongoDB Connection Options ──────────────────────────────────────────────
+const mongoOptions = {
+  maxPoolSize: 50,    // Max concurrent connections (up from default 100 → tuned to 50 for efficiency)
+  minPoolSize: 5,     // Keep 5 connections warm
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+};
+
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
+let server;
+
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(process.env.MONGODB_URI, mongoOptions)
   .then(() => {
     console.log('✅ MongoDB connected');
+    console.log(`   Pool: min=${mongoOptions.minPoolSize}, max=${mongoOptions.maxPoolSize}`);
     startDailyTaskJob();
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+    server = app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT} (pid: ${process.pid})`);
       console.log(`🌐 Allowed origins: ${allowedOrigins.join(', ')}`);
     });
   })
@@ -99,3 +127,30 @@ mongoose
     console.error('❌ MongoDB connection error:', err);
     process.exit(1);
   });
+
+// ─── Graceful Shutdown ───────────────────────────────────────────────────────
+const gracefulShutdown = async (signal) => {
+  console.log(`\n🛑 ${signal} received. Shutting down gracefully...`);
+
+  // 1. Stop accepting new connections
+  if (server) {
+    server.close(() => {
+      console.log('   ✅ HTTP server closed');
+    });
+  }
+
+  // 2. Close MongoDB connection
+  try {
+    await mongoose.connection.close();
+    console.log('   ✅ MongoDB connection closed');
+  } catch (err) {
+    console.error('   ❌ Error closing MongoDB:', err);
+  }
+
+  // 3. Exit
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+

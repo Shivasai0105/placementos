@@ -35,4 +35,7 @@ const progressSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Explicit index for fast lookups by userId
+progressSchema.index({ userId: 1 });
+
 module.exports = mongoose.model('Progress', progressSchema);

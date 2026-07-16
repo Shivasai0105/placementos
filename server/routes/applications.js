@@ -1,8 +1,18 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const auth = require('../middleware/authMiddleware');
 const Application = require('../models/Application');
 
 const router = express.Router();
+
+// ─── Rate Limiter for write operations ────────────────────────────────────────
+const appWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { message: 'Too many application updates. Please slow down.' },
+  standardHeaders: true, legacyHeaders: false,
+});
+
 router.use(auth);
 
 // GET /api/applications — list all for user
@@ -17,7 +27,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/applications — create new
-router.post('/', async (req, res) => {
+router.post('/', appWriteLimiter, async (req, res) => {
   try {
     const { company, role, status, link, notes, salary, appliedDate } = req.body;
     if (!company) return res.status(400).json({ message: 'Company name is required.' });
@@ -35,7 +45,7 @@ router.post('/', async (req, res) => {
 });
 
 // POST /api/applications/scrape — Scrapes a job URL for metadata
-router.post('/scrape', async (req, res) => {
+router.post('/scrape', appWriteLimiter, async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ message: 'URL is required.' });
@@ -146,7 +156,7 @@ router.post('/scrape', async (req, res) => {
 });
 
 // PATCH /api/applications/:id — update (status, notes, etc.)
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', appWriteLimiter, async (req, res) => {
   try {
     const app = await Application.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
@@ -162,7 +172,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 // DELETE /api/applications/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', appWriteLimiter, async (req, res) => {
   try {
     const app = await Application.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!app) return res.status(404).json({ message: 'Application not found.' });
